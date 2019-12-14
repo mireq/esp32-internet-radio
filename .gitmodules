@@ -1,0 +1,3 @@
+[submodule "libs/mpg123"]
+	path = libs/mpg123
+	url = https://salsa.debian.org/multimedia-team/mpg123

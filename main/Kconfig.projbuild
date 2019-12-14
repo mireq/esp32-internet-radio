@@ -1,0 +1,59 @@
+menu "Internet Radio Player"
+
+
+menu "Wifi Configuration"
+
+config WIFI_SSID
+	string "Wifi SSID"
+	help
+		Name (SSID) if wifi network
+
+
+config WIFI_PASSWORD
+	string "Wifi Password"
+	help
+		Password for WPA/WPA2.
+
+config NETWORK_STATIC_CONFIGURATION
+	bool "Static IP address"
+	help
+		Set static IP address.
+
+config IPV4_ADDRESS
+	string "IP address"
+	default "192.168.1.250"
+	depends on NETWORK_STATIC_CONFIGURATION
+	help
+		IPv4 address
+
+config IPV4_MASK
+	string "IP mask"
+	default "255.255.255.0"
+	depends on NETWORK_STATIC_CONFIGURATION
+	help
+		IPv4 mask
+
+config IPV4_GATEWAY
+	string "IP gateway"
+	default "192.168.1.1"
+	depends on NETWORK_STATIC_CONFIGURATION
+	help
+		IPv4 gateway
+
+config IPV4_PRIMARY_DINS
+	string "Primary DNS server"
+	default "192.168.1.1"
+	depends on NETWORK_STATIC_CONFIGURATION
+	help
+		IPv4 address of primary DNS server
+
+config IPV4_SECONDARY_DINS
+	string "Secondary DNS server"
+	default "192.168.1.1"
+	depends on NETWORK_STATIC_CONFIGURATION
+	help
+		IPv4 address of secondary DNS server
+
+endmenu
+
+endmenu

@@ -3,4 +3,14 @@
 cmake_minimum_required(VERSION 3.5)
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
-project(hello-world)
+project(esp32-radio)
+
+if (CONFIG_BUILD_SIMULATOR)
+	ExternalProject_Add(
+		simulator
+		SOURCE_DIR "${CMAKE_SOURCE_DIR}/simulator"
+		INSTALL_COMMAND ""
+		TEST_COMMAND ""
+		BUILD_ALWAYS TRUE
+	)
+endif ()

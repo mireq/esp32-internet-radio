@@ -1,3 +1,6 @@
 [submodule "libs/ESP8266_MP3_DECODER"]
 	path = libs/ESP8266_MP3_DECODER
 	url = https://github.com/espressif/ESP8266_MP3_DECODER
+[submodule "libs/Posix_GCC_Simulator"]
+	path = libs/Posix_GCC_Simulator
+	url = https://github.com/larytet/Posix_GCC_Simulator.git

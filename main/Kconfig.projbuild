@@ -56,4 +56,9 @@ config IPV4_SECONDARY_DINS
 
 endmenu
 
+config BUILD_SIMULATOR
+	bool "Build simulator"
+	help
+		Build simulator using FreeRTOS posix simulator.
+
 endmenu

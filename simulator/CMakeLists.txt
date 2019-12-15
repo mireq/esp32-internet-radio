@@ -8,11 +8,14 @@ include_directories(
 	"${CMAKE_SOURCE_DIR}/../libs/Posix_GCC_Simulator/FreeRTOS_Posix/FreeRTOS_Kernel/include"
 	"${CMAKE_SOURCE_DIR}/../libs/Posix_GCC_Simulator/FreeRTOS_Posix/FreeRTOS_Kernel/portable/GCC/Posix"
 	"${CMAKE_SOURCE_DIR}/../components/player/include/"
+	#"$ENV{IDF_PATH}/components/log/include/"
+	"${CMAKE_CURRENT_BINARY_DIR}/../../../config/"
 )
 
 add_executable(
 	${PROJECT_NAME}
 	startup.c
+	esp_log.c
 	"${CMAKE_SOURCE_DIR}/../libs/Posix_GCC_Simulator/FreeRTOS_Posix/FreeRTOS_Kernel/croutine.c"
 	"${CMAKE_SOURCE_DIR}/../libs/Posix_GCC_Simulator/FreeRTOS_Posix/FreeRTOS_Kernel/list.c"
 	"${CMAKE_SOURCE_DIR}/../libs/Posix_GCC_Simulator/FreeRTOS_Posix/FreeRTOS_Kernel/queue.c"

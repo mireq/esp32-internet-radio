@@ -1,7 +1,17 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+#include "esp_log.h"
+#include "lwip/dns.h"
+#include "lwip/err.h"
+#include "lwip/netdb.h"
+#include "lwip/sockets.h"
+#include "lwip/sys.h"
+
 #include "source.h"
+
+#define TAG "player_source"
 
 
 typedef struct uri_t {
@@ -94,9 +104,52 @@ void stream_destroy(stream_t *stream) {
 }
 
 stream_t *stream_http_init(const uri_t *uri, stream_config callback) {
+	const struct addrinfo hints = {
+		.ai_family = AF_INET,
+		.ai_socktype = SOCK_STREAM,
+	};
+
+	struct addrinfo *res;
+	char port[6];
+	snprintf(port, 6, "%d", uri->port);
+	int err = getaddrinfo(uri->host, port, &hints, &res);
+	if (err != 0 || !res) {
+		ESP_LOGE(TAG, "DNS lookup failed for host %s err=%d res=%p", uri->host, err, res);
+		if (res) {
+			freeaddrinfo(res);
+		}
+		return NULL;
+	}
+
+	int sock = socket(res->ai_family, res->ai_socktype, 0);
+	if (sock < 0) {
+		ESP_LOGE(TAG, "Failed to allocate socket.");
+		freeaddrinfo(res);
+		return NULL;
+	}
+
+	int retries = 10;
+	err = -1;
+	while (err != 0 && retries > 0) {
+		err = connect(sock, res->ai_addr, res->ai_addrlen);
+	}
+	if (err != 0) {
+		ESP_LOGE(TAG, "Failed to open socket. err=%d", errno);
+		close(sock);
+		freeaddrinfo(res);
+		return NULL;
+	}
+	freeaddrinfo(res);
+
+	char *request;
+	if (asprintf(&request, "GET %s HTTP/1.0\r\nHost: %s\r\nUser-Agent: ESP32\r\nAccept: */*\r\nIcy-MetaData: 1\r\n\r\n", uri->path, uri->host) < 0) {
+		close(sock);
+		return NULL;
+	}
+	printf("%s\n", request);
+
 	return NULL;
 }
 
 void stream_http_destroy(stream_t *stream) {
-
 }

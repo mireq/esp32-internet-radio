@@ -26,7 +26,7 @@ add_executable(
 	"${CMAKE_SOURCE_DIR}/../main/main.c"
 )
 
-add_definitions(-DportTICK_PERIOD_MS=1)
+add_definitions(-DportTICK_PERIOD_MS=1 -D_GNU_SOURCE)
 
 target_link_libraries(
 	${PROJECT_NAME}

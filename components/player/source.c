@@ -1,6 +1,7 @@
-#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
+#include <stdarg.h>
 
 #include "esp_log.h"
 #include "lwip/dns.h"
@@ -146,7 +147,21 @@ stream_t *stream_http_init(const uri_t *uri, stream_config callback) {
 		close(sock);
 		return NULL;
 	}
-	printf("%s\n", request);
+
+	if (write(sock, request, strlen(request)) < 0) {
+		ESP_LOGE(TAG, "Socket write failed");
+		close(sock);
+		free(request);
+		return NULL;
+	}
+
+	char recv_buf[64];
+	bzero(recv_buf, sizeof(recv_buf));
+	size_t recved;
+	while (1) {
+		recved = read(sock, recv_buf, sizeof(recv_buf)-1);
+		printf("%d\n", recved);
+	}
 
 	return NULL;
 }

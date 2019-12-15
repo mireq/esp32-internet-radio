@@ -7,20 +7,25 @@ include_directories(
 	"${CMAKE_SOURCE_DIR}/../libs/Posix_GCC_Simulator/FreeRTOS_Posix"
 	"${CMAKE_SOURCE_DIR}/../libs/Posix_GCC_Simulator/FreeRTOS_Posix/FreeRTOS_Kernel/include"
 	"${CMAKE_SOURCE_DIR}/../libs/Posix_GCC_Simulator/FreeRTOS_Posix/FreeRTOS_Kernel/portable/GCC/Posix"
+	"${CMAKE_SOURCE_DIR}/../components/player/include/"
 )
 
 add_executable(
 	${PROJECT_NAME}
+	startup.c
 	"${CMAKE_SOURCE_DIR}/../libs/Posix_GCC_Simulator/FreeRTOS_Posix/FreeRTOS_Kernel/croutine.c"
 	"${CMAKE_SOURCE_DIR}/../libs/Posix_GCC_Simulator/FreeRTOS_Posix/FreeRTOS_Kernel/list.c"
 	"${CMAKE_SOURCE_DIR}/../libs/Posix_GCC_Simulator/FreeRTOS_Posix/FreeRTOS_Kernel/queue.c"
 	"${CMAKE_SOURCE_DIR}/../libs/Posix_GCC_Simulator/FreeRTOS_Posix/FreeRTOS_Kernel/tasks.c"
 	"${CMAKE_SOURCE_DIR}/../libs/Posix_GCC_Simulator/FreeRTOS_Posix/FreeRTOS_Kernel/portable/GCC/Posix/port.c"
 	"${CMAKE_SOURCE_DIR}/../libs/Posix_GCC_Simulator/FreeRTOS_Posix/FreeRTOS_Kernel/portable/MemMang/heap_3.c"
-	startup.c
+	"${CMAKE_SOURCE_DIR}/../components/player/source.c"
 	"${CMAKE_SOURCE_DIR}/../main/main.c"
 )
-TARGET_LINK_LIBRARIES(
+
+add_definitions(-DportTICK_PERIOD_MS=1)
+
+target_link_libraries(
 	${PROJECT_NAME}
 	pthread
 )

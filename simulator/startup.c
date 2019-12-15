@@ -15,9 +15,9 @@ int main(void) {
 void vApplicationIdleHook(void) {
 #ifdef __GCC_POSIX__
 	struct timespec xTimeToSleep, xTimeSlept;
-		xTimeToSleep.tv_sec = 1;
-		xTimeToSleep.tv_nsec = 0;
-		nanosleep(&xTimeToSleep, &xTimeSlept);
+	xTimeToSleep.tv_sec = 1;
+	xTimeToSleep.tv_nsec = 0;
+	nanosleep(&xTimeToSleep, &xTimeSlept);
 #endif
 }
 

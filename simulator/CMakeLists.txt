@@ -8,6 +8,7 @@ include_directories(
 	"${CMAKE_SOURCE_DIR}/../libs/Posix_GCC_Simulator/FreeRTOS_Posix/FreeRTOS_Kernel/include"
 	"${CMAKE_SOURCE_DIR}/../libs/Posix_GCC_Simulator/FreeRTOS_Posix/FreeRTOS_Kernel/portable/GCC/Posix"
 	"${CMAKE_SOURCE_DIR}/../components/player/include/"
+	"${CMAKE_SOURCE_DIR}/../components/http_header_parser/include/"
 	#"$ENV{IDF_PATH}/components/log/include/"
 	"${CMAKE_CURRENT_BINARY_DIR}/../../../config/"
 )
@@ -22,6 +23,7 @@ add_executable(
 	"${CMAKE_SOURCE_DIR}/../libs/Posix_GCC_Simulator/FreeRTOS_Posix/FreeRTOS_Kernel/tasks.c"
 	"${CMAKE_SOURCE_DIR}/../libs/Posix_GCC_Simulator/FreeRTOS_Posix/FreeRTOS_Kernel/portable/GCC/Posix/port.c"
 	"${CMAKE_SOURCE_DIR}/../libs/Posix_GCC_Simulator/FreeRTOS_Posix/FreeRTOS_Kernel/portable/MemMang/heap_3.c"
+	"${CMAKE_SOURCE_DIR}/../components/http_header_parser/http_header_parser.c"
 	"${CMAKE_SOURCE_DIR}/../components/player/source.c"
 	"${CMAKE_SOURCE_DIR}/../main/main.c"
 )

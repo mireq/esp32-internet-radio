@@ -4,6 +4,7 @@
 #include <stdarg.h>
 
 #include "esp_log.h"
+#include "http_header_parser/http_header_parser.h"
 #include "lwip/dns.h"
 #include "lwip/err.h"
 #include "lwip/netdb.h"
@@ -13,6 +14,7 @@
 #include "source.h"
 
 #define TAG "player_source"
+#define MAX_HTTP_HEADER_SIZE 8192
 
 
 typedef struct uri_t {
@@ -21,6 +23,10 @@ typedef struct uri_t {
 	int port;
 	char *path;
 } uri_t;
+
+typedef struct http_stream_metadata_t {
+	int icy_meta_interval;
+} http_stream_metadata_t;
 
 
 uri_t *uri_parse(const char *uri) {
@@ -104,6 +110,25 @@ void stream_destroy(stream_t *stream) {
 	}
 }
 
+
+/* ===== HTTP stram ===== */
+
+void on_http_header_parser_fragment(http_header_parser_t *parser) {
+	if (parser->header_finished) {
+		printf("End header");
+	}
+	else if (parser->header_error) {
+		printf("Header error");
+	}
+	else if (parser->key_length == -1 && parser->value_length == -1) {
+		printf("Status: %d\n", parser->status);
+	}
+	else {
+		printf("Key: %s, Value: %s\n", parser->key, parser->value);
+	}
+}
+
+
 stream_t *stream_http_init(const uri_t *uri, stream_config callback) {
 	const struct addrinfo hints = {
 		.ai_family = AF_INET,
@@ -133,6 +158,9 @@ stream_t *stream_http_init(const uri_t *uri, stream_config callback) {
 	err = -1;
 	while (err != 0 && retries > 0) {
 		err = connect(sock, res->ai_addr, res->ai_addrlen);
+		if (errno != EINTR) {
+			retries -= 1;
+		}
 	}
 	if (err != 0) {
 		ESP_LOGE(TAG, "Failed to open socket. err=%d", errno);
@@ -155,13 +183,27 @@ stream_t *stream_http_init(const uri_t *uri, stream_config callback) {
 		return NULL;
 	}
 
-	char recv_buf[64];
-	bzero(recv_buf, sizeof(recv_buf));
-	size_t recved;
-	while (1) {
-		recved = read(sock, recv_buf, sizeof(recv_buf)-1);
-		printf("%d\n", recved);
+	http_stream_metadata_t metadata;
+	http_header_parser_t parser;
+	http_header_parser_init(&parser, on_http_header_parser_fragment, &metadata);
+
+	char c;
+	for (size_t i = 0; i < MAX_HTTP_HEADER_SIZE; ++i) {
+		ssize_t received = -1;
+		while (received == -1) {
+			received = read(sock, &c, sizeof(c));
+			if (received == -1 && errno != EINTR) {
+				break;
+			}
+		}
+		http_header_parser_feed(&parser, c);
+		if (parser.header_finished || parser.header_error) {
+			break;
+		}
+		//printf("%c", c);
 	}
+	http_header_parser_destroy(&parser);
+	printf("\n");
 
 	return NULL;
 }

@@ -34,7 +34,9 @@ add_executable(
 	"$ENV{IDF_PATH}/components/esp_event/esp_event.c"
 	"${CMAKE_SOURCE_DIR}/../components/http_header_parser/http_header_parser.c"
 	"${CMAKE_SOURCE_DIR}/../components/player/source.c"
-	"${CMAKE_SOURCE_DIR}/../main/events.c"
+	"${CMAKE_SOURCE_DIR}/../components/player/player.c"
+	"${CMAKE_SOURCE_DIR}/../components/player//events.c"
+	"${CMAKE_SOURCE_DIR}/../main/init.c"
 	"${CMAKE_SOURCE_DIR}/../main/main.c"
 )
 
@@ -44,3 +46,4 @@ target_link_libraries(
 	${PROJECT_NAME}
 	pthread
 )
+set_property(TARGET ${PROJECT_NAME} PROPERTY C_STANDARD 11)

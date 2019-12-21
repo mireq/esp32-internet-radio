@@ -1,5 +1,4 @@
 #include "init.h"
-#include "events.h"
 
 
 void app_main(void)

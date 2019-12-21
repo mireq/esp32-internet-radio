@@ -1,26 +1,22 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include <unistd.h>
 
 
 void app_main();
-static void run_main();
-static void exit_app();
+static void run_main(void *data);
+static void exit_app(void *data);
 
 
 int main(void) {
-	xTaskCreate(&run_main, "run_main", 2048, NULL, 5, NULL);
+	xTaskCreate(&run_main, "run_main", 128, NULL, 5, NULL);
 	vTaskStartScheduler();
 	return 0;
 }
 
 
 void vApplicationIdleHook(void) {
-#ifdef __GCC_POSIX__
-	struct timespec xTimeToSleep, xTimeSlept;
-	xTimeToSleep.tv_sec = 1;
-	xTimeToSleep.tv_nsec = 0;
-	nanosleep(&xTimeToSleep, &xTimeSlept);
-#endif
+	sleep(1);
 }
 
 
@@ -28,12 +24,12 @@ void vMainQueueSendPassed(void) {
 }
 
 
-static void exit_app() {
+static void exit_app(void *data) {
 	vTaskEndScheduler();
 }
 
 
-static void run_main() {
+static void run_main(void *data) {
 	app_main();
-	exit_app();
+	vTaskDelete(NULL);
 }

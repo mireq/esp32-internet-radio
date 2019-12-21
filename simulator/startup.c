@@ -3,10 +3,12 @@
 
 
 void app_main();
+static void run_main();
+static void exit_app();
 
 
 int main(void) {
-	xTaskCreate(&app_main, "app_main", 2048, NULL, 5, NULL);
+	xTaskCreate(&run_main, "run_main", 2048, NULL, 5, NULL);
 	vTaskStartScheduler();
 	return 0;
 }
@@ -23,4 +25,15 @@ void vApplicationIdleHook(void) {
 
 
 void vMainQueueSendPassed(void) {
+}
+
+
+static void exit_app() {
+	vTaskEndScheduler();
+}
+
+
+static void run_main() {
+	app_main();
+	exit_app();
 }

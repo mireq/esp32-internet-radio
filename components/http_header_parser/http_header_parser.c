@@ -16,10 +16,6 @@ void http_header_parser_init(http_header_parser_t *parser, header_parser_callbac
 	parser->header_error = 0;
 	parser->callback = callback;
 	parser->last_c = '\0';
-	return parser;
-}
-
-void http_header_parser_destroy(http_header_parser_t *parser) {
 }
 
 void http_header_parser_feed(http_header_parser_t *parser, char c) {

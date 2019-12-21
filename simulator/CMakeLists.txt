@@ -9,7 +9,7 @@ include_directories(
 	"${CMAKE_SOURCE_DIR}/../libs/Posix_GCC_Simulator/FreeRTOS_Posix/FreeRTOS_Kernel/portable/GCC/Posix"
 	"${CMAKE_SOURCE_DIR}/../components/player/include/"
 	"${CMAKE_SOURCE_DIR}/../components/http_header_parser/include/"
-	#"$ENV{IDF_PATH}/components/log/include/"
+	"$ENV{IDF_PATH}/components/log/include/"
 	"${CMAKE_CURRENT_BINARY_DIR}/../../../config/"
 )
 

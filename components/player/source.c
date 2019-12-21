@@ -15,72 +15,74 @@
 
 #define TAG "player_source"
 #define MAX_HTTP_HEADER_SIZE 8192
+#define MAX_URI_SIZE 250
 
 
 typedef struct uri_t {
+	char uri[MAX_URI_SIZE + 3];
 	char *protocol;
 	char *host;
 	int port;
 	char *path;
 } uri_t;
 
+
 typedef struct http_stream_metadata_t {
 	int icy_meta_interval;
 } http_stream_metadata_t;
 
 
-uri_t *uri_parse(const char *uri) {
-	const char *host_start = strstr(uri, "://");
+void uri_parse(uri_t *uri, const char *text) {
+	char c;
+	uri->protocol = NULL;
+	uri->port = -1;
+	uri->host = NULL;
+	uri->path = NULL;
+
+	const char *host_start = strstr(text, "://");
 	if (!host_start) {
-		return NULL;
+		return;
 	}
-	size_t protocol_length = host_start - uri;
 	host_start += 3;
 	const char *path_start = strstr(host_start, "/");
 	if (!path_start) {
-		return NULL;
+		return;
 	}
-	uri_t *uri_parsed = (uri_t *)malloc(sizeof(uri_t));
-	uri_parsed->protocol = (char *)malloc(protocol_length + 1);
-	memcpy(uri_parsed->protocol, uri, protocol_length);
-	uri_parsed->protocol[protocol_length] = '\0';
-	uri_parsed->port = -1;
 	const char *port_start = strstr(host_start, ":");
 	if (port_start && port_start > path_start) {
 		port_start = NULL;
 	}
-	size_t host_length = path_start - host_start;
-	if (port_start) {
-		host_length = port_start - host_start;
-	}
-	uri_parsed->host = (char *)malloc(host_length + 1);
-	memcpy(uri_parsed->host, host_start, host_length);
-	uri_parsed->host[host_length] = '\0';
 	if (port_start) {
 		port_start++;
 		if (port_start < path_start) {
-			uri_parsed->port = atoi(port_start);
+			uri->port = atoi(port_start);
 		}
 	}
-	uri_parsed->path = strdup(path_start);
-	if (uri_parsed->port == -1 && strcmp(uri_parsed->protocol, "http") == 0) {
-		uri_parsed->port = 80;
-	}
-	return uri_parsed;
-}
 
-void uri_free(uri_t *uri) {
-	if (!uri) {
-		return;
+	char *pos = uri->uri;
+	uri->protocol = pos;
+	for (size_t i = 0; i < MAX_URI_SIZE; ++i) {
+		c = text[i];
+		if (c == '\0') {
+			break;
+		}
+		if (i == host_start - text - 3) {
+			pos++;
+			i += 2;
+			uri->host = pos;
+			continue;
+		}
+		if (i == path_start - text) {
+			pos++;
+			uri->path = pos;
+		}
+		*pos = c;
+		pos++;
+		*pos = '\0';
 	}
-	if (uri->protocol) {
-		free(uri->protocol);
-	}
-	if (uri->host) {
-		free(uri->host);
-	}
-	if (uri->path) {
-		free(uri->path);
+
+	if (uri->port == -1 && strcmp(uri->protocol, "http") == 0) {
+		uri->port = 80;
 	}
 }
 
@@ -91,11 +93,14 @@ void stream_http_destroy(stream_t *stream);
 
 stream_t *stream_init(const char *uri, stream_config callback) {
 	stream_t *stream = NULL;
-	uri_t *uri_parsed = uri_parse(uri);
-	if (strcmp(uri_parsed->protocol, "http") == 0) {
-		stream = stream_http_init(uri_parsed, callback);
+	uri_t uri_parsed;
+	uri_parse(&uri_parsed, uri);
+	if (!uri_parsed.protocol) {
+		return stream;
 	}
-	uri_free(uri_parsed);
+	if (strcmp(uri_parsed.protocol, "http") == 0) {
+		stream = stream_http_init(&uri_parsed, callback);
+	}
 	return stream;
 }
 
@@ -135,6 +140,7 @@ stream_t *stream_http_init(const uri_t *uri, stream_config callback) {
 		.ai_socktype = SOCK_STREAM,
 	};
 
+	printf("%s %d %s %s", uri->protocol, uri->port, uri->host, uri->path);
 	struct addrinfo *res;
 	char port[6];
 	snprintf(port, 6, "%d", uri->port);
@@ -182,6 +188,7 @@ stream_t *stream_http_init(const uri_t *uri, stream_config callback) {
 		free(request);
 		return NULL;
 	}
+	free(request);
 
 	http_stream_metadata_t metadata;
 	http_header_parser_t parser;
@@ -202,7 +209,6 @@ stream_t *stream_http_init(const uri_t *uri, stream_config callback) {
 		}
 		//printf("%c", c);
 	}
-	http_header_parser_destroy(&parser);
 	printf("\n");
 
 	return NULL;

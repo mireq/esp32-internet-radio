@@ -5,8 +5,10 @@
 #include "events.h"
 
 
+#ifndef SIMULATOR
 static const char *NET = "network";
 extern esp_netif_t *network_interface;
+#endif
 
 
 void init_events(void) {

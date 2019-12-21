@@ -13,8 +13,10 @@ static void esp_error_check_failed_print(const char *msg, esp_err_t rc, const ch
 #endif //CONFIG_ESP_ERR_TO_NAME_LOOKUP
 }
 
-void invoke_abort() {
+void __attribute__((noreturn)) invoke_abort() {
 	portEXIT_CRITICAL();
+	for (;;) {
+	}
 }
 
 void __attribute__((noreturn)) _esp_error_check_failed(esp_err_t rc, const char *file, int line, const char *function, const char *expression)

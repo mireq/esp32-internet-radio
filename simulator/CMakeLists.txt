@@ -9,9 +9,11 @@ include_directories(
 	"${CMAKE_SOURCE_DIR}/../libs/Posix_GCC_Simulator/FreeRTOS_Posix/FreeRTOS_Kernel/portable/GCC/Posix"
 	"${CMAKE_SOURCE_DIR}/../components/player/include/"
 	"${CMAKE_SOURCE_DIR}/../components/http_header_parser/include/"
+	"${CMAKE_SOURCE_DIR}/../components/"
 	"${CMAKE_SOURCE_DIR}/../main/include/"
 	"$ENV{IDF_PATH}/components/log/include/"
 	"$ENV{IDF_PATH}/components/esp_common/include/"
+	"$ENV{IDF_PATH}/components/esp_event/include/"
 	"$ENV{IDF_PATH}/components/"
 	"${CMAKE_CURRENT_BINARY_DIR}/../../../config/"
 )
@@ -29,13 +31,14 @@ add_executable(
 	"${CMAKE_SOURCE_DIR}/../libs/Posix_GCC_Simulator/FreeRTOS_Posix/FreeRTOS_Kernel/tasks.c"
 	"${CMAKE_SOURCE_DIR}/../libs/Posix_GCC_Simulator/FreeRTOS_Posix/FreeRTOS_Kernel/portable/GCC/Posix/port.c"
 	"${CMAKE_SOURCE_DIR}/../libs/Posix_GCC_Simulator/FreeRTOS_Posix/FreeRTOS_Kernel/portable/MemMang/heap_3.c"
+	"$ENV{IDF_PATH}/components/esp_event/esp_event.c"
 	"${CMAKE_SOURCE_DIR}/../components/http_header_parser/http_header_parser.c"
 	"${CMAKE_SOURCE_DIR}/../components/player/source.c"
 	"${CMAKE_SOURCE_DIR}/../main/events.c"
 	"${CMAKE_SOURCE_DIR}/../main/main.c"
 )
 
-add_definitions(-DportTICK_PERIOD_MS=1 -D_GNU_SOURCE -DSIMULATOR)
+add_definitions(-D_GNU_SOURCE -DSIMULATOR)
 
 target_link_libraries(
 	${PROJECT_NAME}

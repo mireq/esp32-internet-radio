@@ -40,14 +40,14 @@ config IPV4_GATEWAY
 	help
 		IPv4 gateway
 
-config IPV4_PRIMARY_DINS
+config IPV4_PRIMARY_DNS
 	string "Primary DNS server"
 	default "192.168.1.1"
 	depends on NETWORK_STATIC_CONFIGURATION
 	help
 		IPv4 address of primary DNS server
 
-config IPV4_SECONDARY_DINS
+config IPV4_SECONDARY_DNS
 	string "Secondary DNS server"
 	default "192.168.1.1"
 	depends on NETWORK_STATIC_CONFIGURATION

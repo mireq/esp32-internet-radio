@@ -40,6 +40,35 @@ static void network_event_handler(void* arg, esp_event_base_t event_base, int32_
 	else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
 		ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
 		ESP_LOGI(NET, "connected with ip address:" IPSTR, IP2STR(&event->ip_info.ip));
+#if CONFIG_NETWORK_STATIC_CONFIGURATION == 1
+		bool static_configuration = true;
+		ip4_addr_t ip4_main_dns;
+		ip4_addr_t ip4_backup_dns;
+		if (!ip4addr_aton(CONFIG_IPV4_PRIMARY_DNS, &ip4_main_dns)) {
+			ESP_LOGE(TAG, "Main DNS in wrong format");
+			static_configuration = false;
+		}
+		if (!ip4addr_aton(CONFIG_IPV4_SECONDARY_DNS, &ip4_backup_dns)) {
+			ESP_LOGE(TAG, "Backup DNS in wrong format");
+			static_configuration = false;
+		}
+		esp_netif_dns_info_t main_dns = {
+			.ip = {
+				.type = ESP_IPADDR_TYPE_V4,
+			}
+		};
+		esp_netif_dns_info_t backup_dns = {
+			.ip = {
+				.type = ESP_IPADDR_TYPE_V4,
+			}
+		};
+		IP4_ADDR(&main_dns.ip.u_addr.ip4, ip4_addr1_val(ip4_main_dns), ip4_addr2_val(ip4_main_dns), ip4_addr3_val(ip4_main_dns), ip4_addr4_val(ip4_main_dns));
+		IP4_ADDR(&backup_dns.ip.u_addr.ip4, ip4_addr1_val(ip4_backup_dns), ip4_addr2_val(ip4_backup_dns), ip4_addr3_val(ip4_backup_dns), ip4_addr4_val(ip4_backup_dns));
+		if (static_configuration) {
+			ESP_ERROR_CHECK(esp_netif_set_dns_info(network_interface, ESP_NETIF_DNS_MAIN, &main_dns));
+			ESP_ERROR_CHECK(esp_netif_set_dns_info(network_interface, ESP_NETIF_DNS_BACKUP, &backup_dns));
+		}
+#endif
 		esp_event_post_to(player_event_loop, NETWORK_EVENT, NETWORK_EVENT_CONNECT, NULL, 0, portMAX_DELAY);
 	}
 }
@@ -126,7 +155,7 @@ void init_events(void) {
 		.queue_size = 4,
 		.task_name = "player_event",
 		.task_priority = 5,
-		.task_stack_size = 2048,
+		.task_stack_size = 8192,
 		.task_core_id = 0,
 	};
 	ESP_ERROR_CHECK(esp_event_loop_create(&loop_args, &player_event_loop));

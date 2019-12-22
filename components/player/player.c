@@ -8,52 +8,52 @@
 #include "source.h"
 
 
+#define PLAY_RETRY_TIMEOUT 1000
+
+
 static const char *TAG = "player";
 SemaphoreHandle_t play_semaphore = NULL;
-SemaphoreHandle_t stop_semaphore = NULL;
-SemaphoreHandle_t destroy_semaphore = NULL;
 
 
-void player_task(void *data) {
-	ESP_LOGI(TAG, "player task");
-	for (;;) {
-		xSemaphoreTake(play_semaphore, portMAX_DELAY);
-		printf("initialize\n");
-		xSemaphoreTake(stop_semaphore, portMAX_DELAY);
-		printf("destroy\n");
-		xSemaphoreGive(destroy_semaphore);
-	}
-}
+bool source_initialized = false;
+source_config_t callbacks = {
+	.on_data = NULL,
+	.on_status = NULL,
+};
+source_t source = {
+};
 
 
 void start_playback(void) {
-	//stop_playback();
 	ESP_LOGI(TAG, "start playback");
+	stop_playback();
+	xSemaphoreTake(play_semaphore, portMAX_DELAY);
+	source_error_t status = source_init(&source, "http://ice1.somafm.com/illstreet-128-mp3", callbacks);
+	source_initialized = true;
 	xSemaphoreGive(play_semaphore);
+	printf("%d\n", status);
+	if (status != SOURCE_NO_ERROR) {
+		esp_event_post_to(player_event_loop, PLAYBACK_EVENT, PLAYBACK_EVENT_ERROR, NULL, 0, portMAX_DELAY);
+	}
 }
 
 
 void stop_playback(void) {
-	/*
-	xSemaphoreTake(playback_handle_semaphore, portMAX_DELAY);
-	if (player_task_handle == NULL) {
-		xSemaphoreGive(playback_handle_semaphore);
+	xSemaphoreTake(play_semaphore, portMAX_DELAY);
+	if (!source_initialized) {
+		xSemaphoreGive(play_semaphore);
 		return;
 	}
-	*/
 	ESP_LOGI(TAG, "stop playback");
-	xSemaphoreGive(stop_semaphore);
-	xSemaphoreTake(destroy_semaphore, portMAX_DELAY);
+	source_destroy(&source);
 	ESP_LOGI(TAG, "stopped");
+	source_initialized = false;
+	xSemaphoreGive(play_semaphore);
 }
 
 
 static void on_network_connect(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data) {
 	start_playback();
-	//source_t source;
-	//if (source_init(&source, "http://ice1.somafm.com/illstreet-128-mp3", callbacks) != SOURCE_NO_ERROR) {
-	//	return;
-	//}
 }
 
 
@@ -64,6 +64,8 @@ static void on_network_disconnect(void* arg, esp_event_base_t event_base, int32_
 
 static void on_playback_event_error(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data) {
 	stop_playback();
+	vTaskDelay(PLAY_RETRY_TIMEOUT / portTICK_PERIOD_MS);
+	start_playback();
 }
 
 
@@ -75,9 +77,5 @@ void init_player_events(void) {
 
 
 void init_player(void) {
-	play_semaphore = xSemaphoreCreateBinary();
-	stop_semaphore = xSemaphoreCreateBinary();
-	destroy_semaphore = xSemaphoreCreateBinary();
-	ESP_LOGI(TAG, "initialized semaphores");
-	xTaskCreate(&player_task, "playback", 1024, NULL, 5, NULL);
+	play_semaphore = xSemaphoreCreateMutex();
 }

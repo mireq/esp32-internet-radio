@@ -1,7 +1,9 @@
+#include <ctype.h>
+#include <fcntl.h>
+#include <stdarg.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
-#include <stdarg.h>
 
 #include "esp_log.h"
 #include "http_header_parser/http_header_parser.h"
@@ -13,7 +15,7 @@
 
 #include "source.h"
 
-#define TAG "player_source"
+static const char *TAG = "player_source";
 #define MAX_HTTP_HEADER_SIZE 8192
 
 
@@ -72,11 +74,11 @@ void uri_parse(uri_t *uri, const char *text) {
 }
 
 
-source_error source_http_init(source_t *source, const uri_t *uri, source_config callback);
+source_error_t source_http_init(source_t *source, const uri_t *uri, source_config_t callback);
 void source_http_destroy(source_t *source);
 
 
-source_error source_init(source_t *source, const char *uri, source_config callback) {
+source_error_t source_init(source_t *source, const char *uri, source_config_t callback) {
 	uri_t uri_parsed;
 	uri_parse(&uri_parsed, uri);
 	if (!uri_parsed.protocol) {
@@ -99,103 +101,142 @@ void source_destroy(source_t *source) {
 
 /* ===== HTTP source ===== */
 
+typedef struct http_header_t {
+	int status;
+	int icy_metaint;
+	char content_type[HTTP_HEADER_VALUE_BUFFER_SIZE];
+} http_header_t;
+
+
 void on_http_header_parser_fragment(http_header_parser_t *parser) {
+	http_header_t *header = (http_header_t *)parser->handle;
+
 	if (parser->header_finished) {
-		printf("End header");
 	}
 	else if (parser->header_error) {
-		printf("Header error");
+		header->status = -1;
+		ESP_LOGW(TAG, "http header not parsed");
 	}
 	else if (parser->key_length == -1 && parser->value_length == -1) {
-		printf("Status: %d\n", parser->status);
+		ESP_LOGD(TAG, "http status: %d", parser->status);
+		if (header->status == 0) {
+			header->status = parser->status;
+		}
 	}
 	else {
-		printf("Key: %s, Value: %s\n", parser->key, parser->value);
+		ESP_LOGD(TAG, "header %s: %s", parser->key, parser->value);
+		for (char *p = parser->key; *p; ++p) *p = tolower(*p);
+		if (strcmp(parser->key, "content-type") == 0) {
+			strcpy(header->content_type, parser->value);
+		}
+		if (strcmp(parser->key, "icy-metaint") == 0) {
+			header->icy_metaint = atoi(parser->value);
+		}
 	}
 }
 
 
-source_error source_http_init(source_t *source, const uri_t *uri, source_config callback) {
-	ESP_LOGI(TAG, "Init http source");
-	//const struct addrinfo hints = {
-	//	.ai_family = AF_INET,
-	//	.ai_socktype = SOCK_SOURCE,
-	//};
+source_error_t source_http_init(source_t *source, const uri_t *uri, source_config_t callback) {
+	ESP_LOGI(TAG, "opening source http://%s:%d%s", uri->host, uri->port, uri->path);
+	source_data_http_t *http = &source->data.http;
+	http->icy_meta_interval = 0;
+	http->sock = -1;
+	const struct addrinfo hints = {
+		.ai_family = AF_INET,
+		.ai_socktype = SOCK_STREAM,
+	};
 
-	//printf("%s %d %s %s", uri->protocol, uri->port, uri->host, uri->path);
-	//struct addrinfo *res;
-	//char port[6];
-	//snprintf(port, 6, "%d", uri->port);
-	//int err = getaddrinfo(uri->host, port, &hints, &res);
-	//if (err != 0 || !res) {
-	//	ESP_LOGE(TAG, "DNS lookup failed for host %s err=%d res=%p", uri->host, err, res);
-	//	if (res) {
-	//		freeaddrinfo(res);
-	//	}
-	//	return NULL;
-	//}
+	struct addrinfo *res;
+	char port[6];
+	snprintf(port, 6, "%d", uri->port);
+	int err = getaddrinfo(uri->host, port, &hints, &res);
+	if (err != 0 || !res) {
+		ESP_LOGE(TAG, "dns lookup failed for host %s err=%d res=%p", uri->host, err, res);
+		if (res) {
+			freeaddrinfo(res);
+		}
+		return SOURCE_READING_ERROR;
+	}
 
-	//int sock = socket(res->ai_family, res->ai_socktype, 0);
-	//if (sock < 0) {
-	//	ESP_LOGE(TAG, "Failed to allocate socket.");
-	//	freeaddrinfo(res);
-	//	return NULL;
-	//}
+	int sock = socket(res->ai_family, res->ai_socktype, 0);
+	if (sock < 0) {
+		ESP_LOGE(TAG, "failed to allocate socket.");
+		freeaddrinfo(res);
+		return SOURCE_READING_ERROR;
+	}
 
-	//int retries = 10;
-	//err = -1;
-	//while (err != 0 && retries > 0) {
-	//	err = connect(sock, res->ai_addr, res->ai_addrlen);
-	//	if (errno != EINTR) {
-	//		retries -= 1;
-	//	}
-	//}
-	//if (err != 0) {
-	//	ESP_LOGE(TAG, "Failed to open socket. err=%d", errno);
-	//	close(sock);
-	//	freeaddrinfo(res);
-	//	return NULL;
-	//}
-	//freeaddrinfo(res);
+	int retries = 10;
+	err = -1;
+	while (err != 0 && retries > 0) {
+		err = connect(sock, res->ai_addr, res->ai_addrlen);
+		if (errno != EINTR) {
+			retries -= 1;
+		}
+	}
+	if (err != 0) {
+		ESP_LOGE(TAG, "failed to connnect to socket. err=%d", errno);
+		close(sock);
+		freeaddrinfo(res);
+		return SOURCE_READING_ERROR;
+	}
+	freeaddrinfo(res);
 
-	//char *request;
-	//if (asprintf(&request, "GET %s HTTP/1.0\r\nHost: %s\r\nUser-Agent: ESP32\r\nAccept: */*\r\nIcy-MetaData: 1\r\n\r\n", uri->path, uri->host) < 0) {
-	//	close(sock);
-	//	return NULL;
-	//}
+	const char template[] = "GET %s HTTP/1.0\r\nHost: %s\r\nUser-Agent: ESP32\r\nAccept: */*\r\nIcy-MetaData: 1\r\n\r\n";
+	char request[MAX_URI_SIZE + sizeof(template) + 1];
+	bzero(request, sizeof(request));
+	sprintf(request, template, uri->path, uri->host);
 
-	//if (write(sock, request, strlen(request)) < 0) {
-	//	ESP_LOGE(TAG, "Socket write failed");
-	//	close(sock);
-	//	free(request);
-	//	return NULL;
-	//}
-	//free(request);
+	if (write(sock, request, strlen(request)) < 0) {
+		ESP_LOGE(TAG, "socket write failed");
+		close(sock);
+		return SOURCE_READING_ERROR;
+	}
 
-	//http_source_metadata_t metadata;
-	//http_header_parser_t parser;
-	//http_header_parser_init(&parser, on_http_header_parser_fragment, &metadata);
+	http_header_t http_header = {
+		.status = 0,
+		.icy_metaint = 0,
+		.content_type = "",
+	};
+	http_header_parser_t parser;
+	http_header_parser_init(&parser, on_http_header_parser_fragment, &http_header);
 
-	//char c;
-	//for (size_t i = 0; i < MAX_HTTP_HEADER_SIZE; ++i) {
-	//	ssize_t received = -1;
-	//	while (received == -1) {
-	//		received = read(sock, &c, sizeof(c));
-	//		if (received == -1 && errno != EINTR) {
-	//			break;
-	//		}
-	//	}
-	//	http_header_parser_feed(&parser, c);
-	//	if (parser.header_finished || parser.header_error) {
-	//		break;
-	//	}
-	//	//printf("%c", c);
-	//}
-	//printf("\n");
+	char c;
+	for (size_t i = 0; i < MAX_HTTP_HEADER_SIZE; ++i) {
+		ssize_t received = -1;
+		while (received == -1) {
+			received = read(sock, &c, sizeof(c));
+			if (received == -1 && errno != EINTR) {
+				break;
+			}
+		}
+		http_header_parser_feed(&parser, c);
+		if (parser.header_finished || parser.header_error) {
+			break;
+		}
+	}
 
-	//return NULL;
+	if (http_header.status != 200) {
+		ESP_LOGE(TAG, "wrong http status, excepted 200, got %d", http_header.status);
+		close(sock);
+		return SOURCE_READING_ERROR;
+	}
+
+	if (strcmp(http_header.content_type, "audio/mpeg")) {
+		ESP_LOGE(TAG, "wrong content-type, excepted audio/mpeg, got %s", http_header.content_type);
+		close(sock);
+		return SOURCE_READING_ERROR;
+	}
+	http->sock = sock;
+
+	ESP_LOGI(TAG, "opened http stream");
+
 	return SOURCE_NO_ERROR;
 }
 
 void source_http_destroy(source_t *source) {
+	source_data_http_t *http = &source->data.http;
+	if (http->sock >= 0) {
+		close(http->sock);
+		http->sock = -1;
+	}
 }

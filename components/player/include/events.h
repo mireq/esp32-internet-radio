@@ -16,6 +16,7 @@ typedef enum {
 typedef enum {
 	PLAYBACK_EVENT_START,
 	PLAYBACK_EVENT_STOP,
+	PLAYBACK_EVENT_FINISHED,
 	PLAYBACK_EVENT_ERROR,
 } playback_event_t;
 

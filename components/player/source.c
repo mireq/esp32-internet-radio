@@ -74,18 +74,19 @@ void uri_parse(uri_t *uri, const char *text) {
 }
 
 
-source_error_t source_http_init(source_t *source, const uri_t *uri, source_config_t callback);
+source_error_t source_http_init(source_t *source, const uri_t *uri);
 void source_http_destroy(source_t *source);
+ssize_t source_http_read(source_t *source, char *buf, ssize_t size);
 
 
-source_error_t source_init(source_t *source, const char *uri, source_config_t callback) {
+source_error_t source_init(source_t *source, const char *uri) {
 	uri_t uri_parsed;
 	uri_parse(&uri_parsed, uri);
 	if (!uri_parsed.protocol) {
 		return SOURCE_URI_ERROR;
 	}
 	if (strcmp(uri_parsed.protocol, "http") == 0) {
-		return source_http_init(source, &uri_parsed, callback);
+		return source_http_init(source, &uri_parsed);
 	}
 	return SOURCE_URI_ERROR;
 }
@@ -96,6 +97,14 @@ void source_destroy(source_t *source) {
 			source_http_destroy(source);
 			break;
 	}
+}
+
+ssize_t source_read(source_t *source, char *buf, ssize_t size) {
+	switch (source->type) {
+		case SOURCE_TYPE_HTTP:
+			return source_http_read(source, buf, size);
+	}
+	return -1;
 }
 
 
@@ -136,7 +145,7 @@ void on_http_header_parser_fragment(http_header_parser_t *parser) {
 }
 
 
-source_error_t source_http_init(source_t *source, const uri_t *uri, source_config_t callback) {
+source_error_t source_http_init(source_t *source, const uri_t *uri) {
 	ESP_LOGI(TAG, "opening source http://%s:%d%s", uri->host, uri->port, uri->path);
 	source_data_http_t *http = &source->data.http;
 	http->icy_meta_interval = 0;
@@ -238,5 +247,23 @@ void source_http_destroy(source_t *source) {
 	if (http->sock >= 0) {
 		close(http->sock);
 		http->sock = -1;
+		ESP_LOGI(TAG, "closed http stream");
 	}
+}
+
+ssize_t source_http_read(source_t *source, char *buf, ssize_t size) {
+	ssize_t received = -1;
+	while (received == -1) {
+		received = recv(source->data.http.sock, buf, size, MSG_DONTWAIT);
+		if (received == -1 && errno != EINTR) {
+			if (errno == EAGAIN) {
+				received = 0;
+				vTaskDelay(1);
+			}
+			else if (errno != EINTR) {
+				break;
+			}
+		}
+	}
+	return received;
 }

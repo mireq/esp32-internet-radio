@@ -1,3 +1,5 @@
+#include <strings.h>
+
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -16,25 +18,41 @@ SemaphoreHandle_t play_semaphore = NULL;
 
 
 bool source_initialized = false;
-source_config_t callbacks = {
-	.on_data = NULL,
-	.on_status = NULL,
-};
-source_t source = {
-};
+source_t source;
+TaskHandle_t player_task = NULL;
+
+
+void player_loop(void *parameters) {
+	char buf[64];
+	bzero(buf, sizeof(buf));
+
+	for (;;) {
+		ssize_t size = source_read(&source, buf, sizeof(buf) - 1);
+		if (size > 0) {
+			printf("%s\n", buf);
+		}
+	}
+
+	esp_event_post_to(player_event_loop, PLAYBACK_EVENT, PLAYBACK_EVENT_FINISHED, NULL, 0, portMAX_DELAY);
+	vTaskDelete(NULL);
+	player_task = NULL;
+}
 
 
 void start_playback(void) {
 	ESP_LOGI(TAG, "start playback");
 	stop_playback();
 	xSemaphoreTake(play_semaphore, portMAX_DELAY);
-	source_error_t status = source_init(&source, "http://ice1.somafm.com/illstreet-128-mp3", callbacks);
+	source_error_t status = source_init(&source, "http://ice1.somafm.com/illstreet-128-mp3");
 	source_initialized = true;
-	xSemaphoreGive(play_semaphore);
-	printf("%d\n", status);
 	if (status != SOURCE_NO_ERROR) {
+		xSemaphoreGive(play_semaphore);
 		esp_event_post_to(player_event_loop, PLAYBACK_EVENT, PLAYBACK_EVENT_ERROR, NULL, 0, portMAX_DELAY);
 	}
+	if (xTaskCreatePinnedToCore(&player_loop, "player", 2048, &source, 6, &player_task, 0) != pdPASS) {
+		player_task = NULL;
+	}
+	xSemaphoreGive(play_semaphore);
 }
 
 
@@ -46,8 +64,12 @@ void stop_playback(void) {
 	}
 	ESP_LOGI(TAG, "stop playback");
 	source_destroy(&source);
-	ESP_LOGI(TAG, "stopped");
 	source_initialized = false;
+	if (player_task != NULL) {
+		vTaskDelete(player_task);
+		player_task = NULL;
+	}
+	ESP_LOGI(TAG, "stopped");
 	xSemaphoreGive(play_semaphore);
 }
 

@@ -27,17 +27,6 @@ typedef enum source_type_t {
 } source_type_t;
 
 
-typedef void (*source_callback_t) (struct source_t*);
-typedef void (*source_data_callback_t) (struct source_t*, const char *, size_t);
-typedef void (*source_status_callback_t) (struct source_t*, source_status_t);
-
-
-typedef struct source_config_t {
-	source_data_callback_t on_data;
-	source_status_callback_t on_status;
-} source_config_t;
-
-
 typedef struct uri_t {
 	char uri[MAX_URI_SIZE + 3];
 	char *protocol;
@@ -55,7 +44,6 @@ typedef struct source_data_http_t {
 
 typedef struct source_t {
 	void *handle; // Any handle
-	struct source_config_t config;
 	source_type_t type;
 	union {
 		source_data_http_t http;
@@ -63,5 +51,6 @@ typedef struct source_t {
 } source_t;
 
 
-source_error_t source_init(source_t *source, const char *uri, source_config_t callback);
+source_error_t source_init(source_t *source, const char *uri);
+ssize_t source_read(source_t *source, char *buf, ssize_t size);
 void source_destroy(source_t *source);

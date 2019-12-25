@@ -35,7 +35,8 @@ add_executable(
 	"${CMAKE_SOURCE_DIR}/../components/http_header_parser/http_header_parser.c"
 	"${CMAKE_SOURCE_DIR}/../components/player/source.c"
 	"${CMAKE_SOURCE_DIR}/../components/player/player.c"
-	"${CMAKE_SOURCE_DIR}/../components/player//events.c"
+	"${CMAKE_SOURCE_DIR}/../components/player/events.c"
+	"${CMAKE_SOURCE_DIR}/../components/player/audio_output.c"
 	"${CMAKE_SOURCE_DIR}/../main/init.c"
 	"${CMAKE_SOURCE_DIR}/../main/main.c"
 )
@@ -45,5 +46,6 @@ add_definitions(-D_GNU_SOURCE -DSIMULATOR)
 target_link_libraries(
 	${PROJECT_NAME}
 	pthread
+	asound
 )
 set_property(TARGET ${PROJECT_NAME} PROPERTY C_STANDARD 11)

@@ -5,6 +5,7 @@
 #include "freertos/task.h"
 #include "freertos/semphr.h"
 
+#include "audio_output.h"
 #include "events.h"
 #include "player.h"
 #include "source.h"
@@ -17,9 +18,20 @@ static const char *TAG = "player";
 SemaphoreHandle_t play_semaphore = NULL;
 
 
+audio_sample_t audio_buffer[AUDIO_OUTPUT_BUFFER_SIZE << 1];
+
+
 bool source_initialized = false;
 source_t source;
 TaskHandle_t player_task = NULL;
+audio_output_t audio_output = {
+#ifndef SIMULATOR
+	.port = AUDIO_I2S_PORT,
+#else
+	.handle = NULL,
+#endif
+	.sample_rate = 44100,
+};
 
 
 void player_loop(void *parameters) {
@@ -30,6 +42,9 @@ void player_loop(void *parameters) {
 		ssize_t size = source_read(&source, buf, sizeof(buf));
 		if (size == 0) {
 			vTaskDelay(1);
+		}
+		if (size > 0) {
+			audio_output_write(&audio_output, buf, sizeof(buf));
 		}
 		//ssize_t size = source_read(&source, buf, sizeof(buf) - 1);
 		//if (size > 0) {
@@ -104,4 +119,9 @@ void init_player_events(void) {
 
 void init_player(void) {
 	play_semaphore = xSemaphoreCreateMutex();
+}
+
+
+void init_audio_output(void) {
+	audio_output_init(&audio_output);
 }

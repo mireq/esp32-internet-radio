@@ -5,6 +5,7 @@
 void app_main(void)
 {
 	init_nvs();
+	init_audio_output();
 	init_player();
 	init_events();
 	init_network();

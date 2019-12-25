@@ -258,7 +258,6 @@ ssize_t source_http_read(source_t *source, char *buf, ssize_t size) {
 		if (received == -1 && errno != EINTR) {
 			if (errno == EAGAIN) {
 				received = 0;
-				vTaskDelay(1);
 			}
 			else if (errno != EINTR) {
 				break;

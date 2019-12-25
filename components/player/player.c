@@ -27,10 +27,14 @@ void player_loop(void *parameters) {
 	bzero(buf, sizeof(buf));
 
 	for (;;) {
-		ssize_t size = source_read(&source, buf, sizeof(buf) - 1);
-		if (size > 0) {
-			printf("%s\n", buf);
+		ssize_t size = source_read(&source, buf, sizeof(buf));
+		if (size == 0) {
+			vTaskDelay(1);
 		}
+		//ssize_t size = source_read(&source, buf, sizeof(buf) - 1);
+		//if (size > 0) {
+		//	printf("%d\n", size);
+		//}
 	}
 
 	esp_event_post_to(player_event_loop, PLAYBACK_EVENT, PLAYBACK_EVENT_FINISHED, NULL, 0, portMAX_DELAY);

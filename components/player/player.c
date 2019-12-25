@@ -68,6 +68,11 @@ void start_playback(void) {
 		xSemaphoreGive(play_semaphore);
 		esp_event_post_to(player_event_loop, PLAYBACK_EVENT, PLAYBACK_EVENT_ERROR, NULL, 0, portMAX_DELAY);
 	}
+	if (strcmp(source.content_type, "audio/mpeg")) {
+		ESP_LOGE(TAG, "wrong content-type, excepted audio/mpeg, got %s", source.content_type);
+		xSemaphoreGive(play_semaphore);
+		esp_event_post_to(player_event_loop, PLAYBACK_EVENT, PLAYBACK_EVENT_ERROR, NULL, 0, portMAX_DELAY);
+	}
 	if (xTaskCreatePinnedToCore(&player_loop, "player", 2048, &source, 6, &player_task, 0) != pdPASS) {
 		player_task = NULL;
 	}

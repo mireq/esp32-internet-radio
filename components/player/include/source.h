@@ -2,6 +2,8 @@
 
 #include <stdlib.h>
 
+#include "http_header_parser/http_header_parser.h"
+
 #define MAX_URI_SIZE 250
 
 
@@ -45,6 +47,7 @@ typedef struct source_data_http_t {
 typedef struct source_t {
 	void *handle; // Any handle
 	source_type_t type;
+	char content_type[HTTP_HEADER_VALUE_BUFFER_SIZE];
 	union {
 		source_data_http_t http;
 	} data;

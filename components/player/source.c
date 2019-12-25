@@ -80,6 +80,7 @@ ssize_t source_http_read(source_t *source, char *buf, ssize_t size);
 
 
 source_error_t source_init(source_t *source, const char *uri) {
+	bzero(source->content_type, sizeof(source->content_type));
 	uri_t uri_parsed;
 	uri_parse(&uri_parsed, uri);
 	if (!uri_parsed.protocol) {
@@ -230,12 +231,8 @@ source_error_t source_http_init(source_t *source, const uri_t *uri) {
 		return SOURCE_READING_ERROR;
 	}
 
-	if (strcmp(http_header.content_type, "audio/mpeg")) {
-		ESP_LOGE(TAG, "wrong content-type, excepted audio/mpeg, got %s", http_header.content_type);
-		close(sock);
-		return SOURCE_READING_ERROR;
-	}
 	http->sock = sock;
+	strcpy(source->content_type, http_header.content_type);
 
 	ESP_LOGI(TAG, "opened http stream");
 

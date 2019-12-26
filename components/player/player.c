@@ -1,3 +1,4 @@
+#include <string.h>
 #include <strings.h>
 
 #include "esp_log.h"
@@ -57,8 +58,6 @@ void handle_playback(source_t *source) {
 
 	char buf[64];
 	for (;;) {
-		printf(".");
-		fflush(stdout);
 		ssize_t size = source_read(source, buf, sizeof(buf));
 		if (size == 0) {
 			xSemaphoreTake(wait_data_semaphore, 1);
@@ -77,7 +76,13 @@ void handle_playback(source_t *source) {
 
 
 void player_loop(void *parameters) {
-	ESP_LOGI(TAG, "player loop");
+	bzero(uri, sizeof(uri));
+	source_changed_semaphore = xSemaphoreCreateBinary();
+	playback_stopped_semaphore = xSemaphoreCreateBinary();
+	wait_data_semaphore = xSemaphoreCreateBinary();
+	xSemaphoreGive(playback_stopped_semaphore);
+
+	ESP_LOGI(TAG, "player loop initialized");
 
 	for (;;) {
 		xSemaphoreTake(source_changed_semaphore, portMAX_DELAY);
@@ -147,12 +152,7 @@ void init_player_events(void) {
 
 
 void init_player(void) {
-	bzero(uri, sizeof(uri));
-	source_changed_semaphore = xSemaphoreCreateBinary();
-	playback_stopped_semaphore = xSemaphoreCreateBinary();
-	wait_data_semaphore = xSemaphoreCreateBinary();
-	xSemaphoreGive(playback_stopped_semaphore);
-	if (xTaskCreatePinnedToCore(&player_loop, "player", 128, NULL, 6, NULL, 0) != pdPASS) {
+	if (xTaskCreatePinnedToCore(&player_loop, "player", 8192, NULL, 6, NULL, 0) != pdPASS) {
 		ESP_LOGE(TAG, "Player task not initialized");
 	}
 }

@@ -15,15 +15,24 @@
 
 
 static const char *TAG = "player";
-SemaphoreHandle_t play_semaphore = NULL;
 
 
+typedef enum playback_command_t {
+	NO_COMMAND,
+	STOP_COMMAND,
+	QUIT_COMMAND,
+} playback_command_t;
+
+
+char uri[MAX_URI_SIZE];
 audio_sample_t audio_buffer[AUDIO_OUTPUT_BUFFER_SIZE << 1];
+playback_command_t playback_command = NO_COMMAND;
+SemaphoreHandle_t source_changed_semaphore = NULL;
+SemaphoreHandle_t playback_stopped_semaphore = NULL;
+SemaphoreHandle_t wait_data_semaphore = NULL;
 
-
-bool source_initialized = false;
 source_t source;
-TaskHandle_t player_task = NULL;
+
 audio_output_t audio_output = {
 #ifndef SIMULATOR
 	.port = AUDIO_I2S_PORT,
@@ -34,67 +43,73 @@ audio_output_t audio_output = {
 };
 
 
-void player_loop(void *parameters) {
-	char buf[64];
-	bzero(buf, sizeof(buf));
-
-	for (;;) {
-		ssize_t size = source_read(&source, buf, sizeof(buf));
-		if (size == 0) {
-			vTaskDelay(1);
-		}
-		if (size > 0) {
-			audio_output_write(&audio_output, buf, sizeof(buf));
-		}
-		//ssize_t size = source_read(&source, buf, sizeof(buf) - 1);
-		//if (size > 0) {
-		//	printf("%d\n", size);
-		//}
+void handle_playback(source_t *source) {
+	if (strcmp(source->content_type, "audio/mpeg")) {
+		ESP_LOGE(TAG, "wrong content-type, excepted audio/mpeg, got %s", source->content_type);
+		esp_event_post_to(player_event_loop, PLAYBACK_EVENT, PLAYBACK_EVENT_ERROR, NULL, 0, portMAX_DELAY);
+		return;
 	}
 
-	esp_event_post_to(player_event_loop, PLAYBACK_EVENT, PLAYBACK_EVENT_FINISHED, NULL, 0, portMAX_DELAY);
+	char buf[64];
+	for (;;) {
+		ssize_t size = source_read(source, buf, sizeof(buf));
+		if (size == 0) {
+			xSemaphoreTake(wait_data_semaphore, 1);
+		}
+		else if (size < 0 || playback_command == STOP_COMMAND) {
+			break;
+		}
+		else {
+			//printf("%d\n", size);
+			audio_output_write(&audio_output, (audio_sample_t *)buf, size);
+		}
+	}
+
+}
+
+
+void player_loop(void *parameters) {
+	ESP_LOGI(TAG, "player loop");
+
+	for (;;) {
+		xSemaphoreTake(source_changed_semaphore, portMAX_DELAY);
+		playback_command = NO_COMMAND;
+		if (strlen(uri) > 0) {
+			source_error_t status = source_init(&source, uri);
+			if (status == SOURCE_NO_ERROR) {
+				ESP_LOGI(TAG, "start playback");
+				handle_playback(&source);
+				ESP_LOGI(TAG, "stop playback");
+			}
+			else {
+				esp_event_post_to(player_event_loop, PLAYBACK_EVENT, PLAYBACK_EVENT_ERROR, NULL, 0, portMAX_DELAY);
+			}
+			source_destroy(&source);
+		}
+		xSemaphoreGive(playback_stopped_semaphore);
+		if (playback_command == QUIT_COMMAND) {
+			break;
+		}
+	}
+
 	vTaskDelete(NULL);
-	player_task = NULL;
 }
 
 
 void start_playback(void) {
-	ESP_LOGI(TAG, "start playback");
 	stop_playback();
-	xSemaphoreTake(play_semaphore, portMAX_DELAY);
-	source_error_t status = source_init(&source, "http://ice1.somafm.com/illstreet-128-mp3");
-	source_initialized = true;
-	if (status != SOURCE_NO_ERROR) {
-		xSemaphoreGive(play_semaphore);
-		esp_event_post_to(player_event_loop, PLAYBACK_EVENT, PLAYBACK_EVENT_ERROR, NULL, 0, portMAX_DELAY);
-	}
-	if (strcmp(source.content_type, "audio/mpeg")) {
-		ESP_LOGE(TAG, "wrong content-type, excepted audio/mpeg, got %s", source.content_type);
-		xSemaphoreGive(play_semaphore);
-		esp_event_post_to(player_event_loop, PLAYBACK_EVENT, PLAYBACK_EVENT_ERROR, NULL, 0, portMAX_DELAY);
-	}
-	if (xTaskCreatePinnedToCore(&player_loop, "player", 2048, &source, 6, &player_task, 0) != pdPASS) {
-		player_task = NULL;
-	}
-	xSemaphoreGive(play_semaphore);
+	strcpy(uri, "http://ice1.somafm.com/illstreet-128-mp3");
+	xSemaphoreGive(source_changed_semaphore);
 }
 
 
 void stop_playback(void) {
-	xSemaphoreTake(play_semaphore, portMAX_DELAY);
-	if (!source_initialized) {
-		xSemaphoreGive(play_semaphore);
-		return;
-	}
-	ESP_LOGI(TAG, "stop playback");
-	source_destroy(&source);
-	source_initialized = false;
-	if (player_task != NULL) {
-		vTaskDelete(player_task);
-		player_task = NULL;
-	}
-	ESP_LOGI(TAG, "stopped");
-	xSemaphoreGive(play_semaphore);
+	playback_command = STOP_COMMAND;
+	bzero(uri, sizeof(uri));
+	xSemaphoreGive(wait_data_semaphore);
+	xSemaphoreGive(source_changed_semaphore);
+	xSemaphoreTake(playback_stopped_semaphore, portMAX_DELAY);
+
 }
 
 
@@ -123,7 +138,14 @@ void init_player_events(void) {
 
 
 void init_player(void) {
-	play_semaphore = xSemaphoreCreateMutex();
+	bzero(uri, sizeof(uri));
+	source_changed_semaphore = xSemaphoreCreateBinary();
+	playback_stopped_semaphore = xSemaphoreCreateBinary();
+	wait_data_semaphore = xSemaphoreCreateBinary();
+	xSemaphoreGive(playback_stopped_semaphore);
+	if (xTaskCreatePinnedToCore(&player_loop, "player", 128, NULL, 6, NULL, 0) != pdPASS) {
+		ESP_LOGE(TAG, "Player task not initialized");
+	}
 }
 
 

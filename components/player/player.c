@@ -52,6 +52,8 @@ void handle_playback(source_t *source) {
 
 	char buf[64];
 	for (;;) {
+		printf(".");
+		fflush(stdout);
 		ssize_t size = source_read(source, buf, sizeof(buf));
 		if (size == 0) {
 			xSemaphoreTake(wait_data_semaphore, 1);
@@ -60,11 +62,9 @@ void handle_playback(source_t *source) {
 			break;
 		}
 		else {
-			//printf("%d\n", size);
-			audio_output_write(&audio_output, (audio_sample_t *)buf, size);
+			audio_output_write(&audio_output, (audio_sample_t *)buf, size / 8);
 		}
 	}
-
 }
 
 

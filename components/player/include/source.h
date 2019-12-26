@@ -4,7 +4,10 @@
 
 #include "http_header_parser/http_header_parser.h"
 
+#define SOURCE_READ_AGAIN -2
+
 #define MAX_URI_SIZE 250
+#define MAX_ICY_SIZE 256*16
 
 
 struct source_t;
@@ -29,6 +32,9 @@ typedef enum source_type_t {
 } source_type_t;
 
 
+typedef void (*source_metadata_callback_t) (struct source_t*, const char *, const char *);
+
+
 typedef struct uri_t {
 	char uri[MAX_URI_SIZE + 3];
 	char *protocol;
@@ -40,6 +46,10 @@ typedef struct uri_t {
 
 typedef struct source_data_http_t {
 	int icy_meta_interval;
+	int icy_meta_interval_distance;
+	int icy_meta_size;
+	int icy_meta_readed;
+	char icy_meta_buffer[MAX_ICY_SIZE];
 	int sock;
 } source_data_http_t;
 
@@ -47,6 +57,7 @@ typedef struct source_data_http_t {
 typedef struct source_t {
 	void *handle; // Any handle
 	source_type_t type;
+	source_metadata_callback_t metadata_callback;
 	char content_type[HTTP_HEADER_VALUE_BUFFER_SIZE];
 	union {
 		source_data_http_t http;

@@ -43,6 +43,11 @@ audio_output_t audio_output = {
 };
 
 
+static void on_metadata(struct source_t *source, const char *key, const char *value) {
+	ESP_LOGI(TAG, "Metadata: %s = %s", key, value);
+}
+
+
 void handle_playback(source_t *source) {
 	if (strcmp(source->content_type, "audio/mpeg")) {
 		ESP_LOGE(TAG, "wrong content-type, excepted audio/mpeg, got %s", source->content_type);
@@ -57,6 +62,9 @@ void handle_playback(source_t *source) {
 		ssize_t size = source_read(source, buf, sizeof(buf));
 		if (size == 0) {
 			xSemaphoreTake(wait_data_semaphore, 1);
+		}
+		else if (size == SOURCE_READ_AGAIN) {
+			continue;
 		}
 		else if (size < 0 || playback_command == STOP_COMMAND) {
 			break;
@@ -78,6 +86,7 @@ void player_loop(void *parameters) {
 			source_error_t status = source_init(&source, uri);
 			if (status == SOURCE_NO_ERROR) {
 				ESP_LOGI(TAG, "start playback");
+				source.metadata_callback = on_metadata;
 				handle_playback(&source);
 				ESP_LOGI(TAG, "stop playback");
 			}

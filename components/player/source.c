@@ -81,6 +81,7 @@ ssize_t source_http_read(source_t *source, char *buf, ssize_t size);
 
 source_error_t source_init(source_t *source, const char *uri) {
 	bzero(source->content_type, sizeof(source->content_type));
+	source->metadata_callback = NULL;
 	uri_t uri_parsed;
 	uri_parse(&uri_parsed, uri);
 	if (!uri_parsed.protocol) {
@@ -150,6 +151,9 @@ source_error_t source_http_init(source_t *source, const uri_t *uri) {
 	ESP_LOGI(TAG, "opening source http://%s:%d%s", uri->host, uri->port, uri->path);
 	source_data_http_t *http = &source->data.http;
 	http->icy_meta_interval = 0;
+	http->icy_meta_interval_distance = 0;
+	http->icy_meta_size = 0;
+	http->icy_meta_readed = 0;
 	http->sock = -1;
 	const struct addrinfo hints = {
 		.ai_family = AF_INET,
@@ -232,6 +236,8 @@ source_error_t source_http_init(source_t *source, const uri_t *uri) {
 	}
 
 	http->sock = sock;
+	http->icy_meta_interval = http_header.icy_metaint;
+	http->icy_meta_interval_distance = http_header.icy_metaint;
 	strcpy(source->content_type, http_header.content_type);
 
 	ESP_LOGI(TAG, "opened http stream");
@@ -248,10 +254,28 @@ void source_http_destroy(source_t *source) {
 	}
 }
 
-ssize_t source_http_read(source_t *source, char *buf, ssize_t size) {
+static void parse_icy_metadata(source_t *source, char *buf) {
+	printf("\n%s\n", buf);
+}
+
+static ssize_t source_http_read_icy_metadata(source_t *source) {
+	source_data_http_t *http = &source->data.http;
 	ssize_t received = -1;
+	ssize_t requested = http->icy_meta_size;
+	uint8_t size;
+	char *buf;
+	if (requested == -1) {
+		buf = (char *)(&size);
+		requested = 1;
+		bzero(http->icy_meta_buffer, sizeof(http->icy_meta_buffer));
+		http->icy_meta_interval_distance = http->icy_meta_interval;
+	}
+	else {
+		buf = &http->icy_meta_buffer[http->icy_meta_readed];
+		requested = http->icy_meta_size - http->icy_meta_readed;
+	}
 	while (received == -1) {
-		received = recv(source->data.http.sock, buf, size, MSG_DONTWAIT);
+		received = recv(source->data.http.sock, buf, requested, MSG_DONTWAIT);
 		if (received == -1 && errno != EINTR) {
 			if (errno == EAGAIN) {
 				received = 0;
@@ -260,6 +284,53 @@ ssize_t source_http_read(source_t *source, char *buf, ssize_t size) {
 				break;
 			}
 		}
+	}
+	if (received > 0) {
+		if (http->icy_meta_size == -1) {
+			http->icy_meta_size = size * 16;
+		}
+		else {
+			http->icy_meta_readed += received;
+			if (http->icy_meta_readed == http->icy_meta_size) {
+				parse_icy_metadata(source, http->icy_meta_buffer);
+				http->icy_meta_size = 0;
+				http->icy_meta_readed = 0;
+			}
+		}
+
+		return SOURCE_READ_AGAIN;
+	}
+	return received;
+}
+
+ssize_t source_http_read(source_t *source, char *buf, ssize_t size) {
+	source_data_http_t *http = &source->data.http;
+	ssize_t received = -1;
+	ssize_t requested = size;
+	if (http->icy_meta_size != 0) {
+		return source_http_read_icy_metadata(source);
+	}
+	if (http->icy_meta_interval > 0 && requested > http->icy_meta_interval_distance) {
+		requested = http->icy_meta_interval_distance;
+		if (requested == 0) {
+			http->icy_meta_size = -1;
+			http->icy_meta_readed = 0;
+			return source_http_read_icy_metadata(source);
+		}
+	}
+	while (received == -1) {
+		received = recv(source->data.http.sock, buf, requested, MSG_DONTWAIT);
+		if (received == -1 && errno != EINTR) {
+			if (errno == EAGAIN) {
+				received = 0;
+			}
+			else if (errno != EINTR) {
+				break;
+			}
+		}
+	}
+	if (received > 0) {
+		http->icy_meta_interval_distance -= received;
 	}
 	return received;
 }

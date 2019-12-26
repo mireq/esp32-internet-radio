@@ -17,6 +17,7 @@
 
 static const char *TAG = "player_source";
 #define MAX_HTTP_HEADER_SIZE 8192
+char meta_value_buffer[MAX_META_VALUE_SIZE + 1];
 
 
 void uri_parse(uri_t *uri, const char *text) {
@@ -255,7 +256,31 @@ void source_http_destroy(source_t *source) {
 }
 
 static void parse_icy_metadata(source_t *source, char *buf) {
-	printf("\n%s\n", buf);
+	source_data_http_t *http = &source->data.http;
+	buf[MAX_ICY_SIZE - 1] = '\0';
+	char *title = strstr(buf, "StreamTitle=");
+	if (title == NULL) {
+		return;
+	}
+	title += sizeof("StreamTitle=") - 1;
+	if (title[0] == '"' || title[0] == '\'') {
+		title++;
+	}
+	char *title_end = title;
+	title_end = strstr(title_end, ";");
+	if (title_end == NULL) {
+		return;
+	}
+	title_end--;
+	if (title_end[0] == '"' || title_end[0] == '\'') {
+		title_end--;
+	}
+
+	bzero(meta_value_buffer, sizeof(meta_value_buffer));
+	strncpy(meta_value_buffer, title, title_end - title);
+	if (source->metadata_callback) {
+		source->metadata_callback(source, "title", meta_value_buffer);
+	}
 }
 
 static ssize_t source_http_read_icy_metadata(source_t *source) {

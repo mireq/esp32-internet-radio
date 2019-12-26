@@ -8,6 +8,7 @@
 
 #define MAX_URI_SIZE 250
 #define MAX_ICY_SIZE 256*16
+#define MAX_META_VALUE_SIZE 256
 
 
 struct source_t;

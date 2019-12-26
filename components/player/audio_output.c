@@ -8,6 +8,8 @@ static const char *TAG = "audio_output";
 
 #ifdef SIMULATOR
 static char *device = "default";
+#else
+static i2s_dev_t* I2S[I2S_NUM_MAX] = {&I2S0, &I2S1};
 #endif
 
 
@@ -53,6 +55,29 @@ esp_err_t audio_output_init(audio_output_t *output) {
 	}
 
 	return ESP_OK;
+#else
+	i2s_config_t i2s_config = {
+		.mode = I2S_MODE_MASTER | I2S_MODE_TX,
+		.sample_rate = output->sample_rate,
+		.bits_per_sample = AUDIO_BITS_PER_SAMPLE,
+		.channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT,
+		.communication_format = I2S_COMM_FORMAT_I2S | I2S_COMM_FORMAT_I2S_MSB,
+		.intr_alloc_flags = ESP_INTR_FLAG_LEVEL2,
+		.dma_buf_count = AUDIO_OUTPUT_BUFFER_COUNT,
+		.dma_buf_len = AUDIO_OUTPUT_BUFFER_SIZE,
+		.use_apll = false,
+	};
+	i2s_pin_config_t pin_config = {
+		.bck_io_num = GPIO_NUM_26,
+		.ws_io_num = GPIO_NUM_25,
+		.data_out_num = GPIO_NUM_22,
+		.data_in_num = I2S_PIN_NO_CHANGE
+	};
+	ESP_ERROR_CHECK(i2s_driver_install(output->port, &i2s_config, 0, NULL));
+	ESP_ERROR_CHECK(i2s_zero_dma_buffer(output->port));
+	ESP_ERROR_CHECK(i2s_set_pin(output->port, &pin_config));
+	ESP_LOGI(TAG, "I2S initialized");
+	return ESP_OK;
 #endif
 }
 
@@ -65,6 +90,21 @@ esp_err_t audio_output_set_sample_rate(audio_output_t *output, int rate) {
 		return ESP_FAIL;
 	}
 
+	return ESP_OK;
+#else
+	int factor = (256 % AUDIO_BITS_PER_SAMPLE)? 384 : 256;
+	int div_b, bck = 0;
+	double denom = (double)1 / 64;
+	double clkmdiv = (double)I2S_BASE_CLK / (rate * factor);
+	div_b = (clkmdiv - (int)clkmdiv) / denom;
+	bck = factor/(I2S_BITS_PER_SAMPLE_32BIT * 2);
+
+	I2S[output->port]->clkm_conf.clkm_div_a = 63;
+	I2S[output->port]->clkm_conf.clkm_div_b = div_b;
+	I2S[output->port]->clkm_conf.clkm_div_num = (int)clkmdiv;
+	I2S[output->port]->sample_rate_conf.tx_bck_div_num = bck;
+	I2S[output->port]->sample_rate_conf.rx_bck_div_num = bck;
+	output->sample_rate = rate;
 	return ESP_OK;
 #endif
 }
@@ -86,6 +126,10 @@ esp_err_t audio_output_write(audio_output_t *output, audio_sample_t *buf, size_t
 	}
 
 	return ESP_OK;
+#else
+	size_t bytes_written;
+	i2s_write(output->port, buf, samples_count * AUDIO_BITS_PER_SAMPLE * 2, &bytes_written, portMAX_DELAY);
+	return ESP_OK;
 #endif
 }
 
@@ -94,6 +138,10 @@ esp_err_t  audio_output_destroy(audio_output_t *output) {
 #ifdef SIMULATOR
 	snd_pcm_close(output->handle);
 	output->handle = NULL;
+	return ESP_OK;
+#else
+	i2s_driver_uninstall(output->port);
+	ESP_LOGI(TAG, "I2S stopped");
 	return ESP_OK;
 #endif
 }

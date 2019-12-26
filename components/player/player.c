@@ -110,6 +110,13 @@ void player_loop(void *parameters) {
 }
 
 
+void audio_loop(void *parameters) {
+	ESP_LOGI(TAG, "audio loop");
+	vTaskSuspend(NULL);
+	vTaskDelete(NULL);
+}
+
+
 void start_playback(void) {
 	stop_playback();
 	strcpy(uri, "http://ice1.somafm.com/illstreet-128-mp3");
@@ -154,6 +161,9 @@ void init_player_events(void) {
 void init_player(void) {
 	if (xTaskCreatePinnedToCore(&player_loop, "player", 8192, NULL, 6, NULL, 0) != pdPASS) {
 		ESP_LOGE(TAG, "Player task not initialized");
+	}
+	if (xTaskCreatePinnedToCore(&audio_loop, "audio", 128, NULL, 7, NULL, 0) != pdPASS) {
+		ESP_LOGE(TAG, "Audio loop not itialized");
 	}
 }
 

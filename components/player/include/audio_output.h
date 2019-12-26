@@ -27,6 +27,7 @@ typedef struct audio_output_t {
 	i2s_port_t port;
 #else
 	snd_pcm_t *handle;
+	SemaphoreHandle_t write_semaphore;
 #endif
 } audio_output_t;
 

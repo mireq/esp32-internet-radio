@@ -30,7 +30,9 @@ void buffer_init(buffer_t *buffer) {
 esp_err_t buffer_read(buffer_t *buffer, char *buf, size_t size) {
 	size_t pos = 0;
 	while (pos < size) {
-		if (buffer->r_pos == buffer->w_pos) {
+		size_t r_pos = buffer->r_pos;
+		size_t w_pos = buffer->w_pos;
+		if (buffer->r_pos == w_pos) {
 			xSemaphoreTake(buffer->can_read_semaphore, portMAX_DELAY);
 			if (buffer->destroying) {
 				return ESP_FAIL;
@@ -39,10 +41,11 @@ esp_err_t buffer_read(buffer_t *buffer, char *buf, size_t size) {
 		else {
 			buf[pos] = buffer->buf[buffer->r_pos];
 			pos++;
-			buffer->r_pos++;
-			if (buffer->r_pos >= buffer->size) {
-				buffer->r_pos = 0;
+			r_pos++;
+			if (r_pos >= buffer->size) {
+				r_pos = 0;
 			}
+			buffer->r_pos = r_pos;
 		}
 	}
 	xSemaphoreGive(buffer->can_write_semaphore);
@@ -53,7 +56,9 @@ esp_err_t buffer_read(buffer_t *buffer, char *buf, size_t size) {
 esp_err_t buffer_write(buffer_t *buffer, char *buf, size_t size) {
 	size_t pos = 0;
 	while (pos < size) {
-		if (buffer->w_pos + 1 == buffer->r_pos || (buffer->r_pos == 0 && buffer->w_pos == buffer->size - 1)) {
+		size_t r_pos = buffer->r_pos;
+		size_t w_pos = buffer->w_pos;
+		if (buffer->w_pos + 1 == r_pos || (r_pos == 0 && buffer->w_pos == buffer->size - 1)) {
 			xSemaphoreTake(buffer->can_write_semaphore, portMAX_DELAY);
 			if (buffer->destroying) {
 				return ESP_FAIL;
@@ -62,10 +67,11 @@ esp_err_t buffer_write(buffer_t *buffer, char *buf, size_t size) {
 		else {
 			buffer->buf[buffer->w_pos] = buf[pos];
 			pos++;
-			buffer->w_pos++;
-			if (buffer->w_pos >= buffer->size) {
-				buffer->w_pos = 0;
+			w_pos++;
+			if (w_pos >= buffer->size) {
+				w_pos = 0;
 			}
+			buffer->w_pos = w_pos;
 		}
 	}
 	xSemaphoreGive(buffer->can_read_semaphore);

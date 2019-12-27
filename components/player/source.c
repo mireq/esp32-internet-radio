@@ -256,7 +256,6 @@ void source_http_destroy(source_t *source) {
 }
 
 static void parse_icy_metadata(source_t *source, char *buf) {
-	source_data_http_t *http = &source->data.http;
 	buf[MAX_ICY_SIZE - 1] = '\0';
 	char *title = strstr(buf, "StreamTitle=");
 	if (title == NULL) {

@@ -1,5 +1,11 @@
 #pragma once
 
+
+#define PLAY_RETRY_TIMEOUT 1000
+#define STREAM_BUFFER_SIZE (64 * 1024)
+#define AUDIO_PROCESS_BUFFER_SIZE 2048
+
+
 void init_player_events(void);
 void start_playback(void);
 void stop_playback(void);

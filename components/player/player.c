@@ -2,17 +2,16 @@
 #include <strings.h>
 
 #include "esp_log.h"
+#include "esp_heap_caps.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "freertos/semphr.h"
 
 #include "audio_output.h"
+#include "buffer/buffer.h"
 #include "events.h"
 #include "player.h"
 #include "source.h"
-
-
-#define PLAY_RETRY_TIMEOUT 1000
 
 
 static const char *TAG = "player";
@@ -26,6 +25,7 @@ typedef enum playback_command_t {
 
 
 char uri[MAX_URI_SIZE];
+char audio_process_buffer[AUDIO_PROCESS_BUFFER_SIZE];
 audio_sample_t audio_buffer[AUDIO_OUTPUT_BUFFER_SIZE << 1];
 playback_command_t playback_command = NO_COMMAND;
 SemaphoreHandle_t source_changed_semaphore = NULL;
@@ -43,13 +43,15 @@ audio_output_t audio_output = {
 	.sample_rate = 44100,
 };
 
+buffer_t buffer;
+
 
 static void on_metadata(struct source_t *source, const char *key, const char *value) {
 	ESP_LOGI(TAG, "Metadata: %s = %s", key, value);
 }
 
 
-void handle_playback(source_t *source) {
+void process_data(source_t *source, buffer_t *buffer) {
 	if (strcmp(source->content_type, "audio/mpeg")) {
 		ESP_LOGE(TAG, "wrong content-type, excepted audio/mpeg, got %s", source->content_type);
 		esp_event_post_to(player_event_loop, PLAYBACK_EVENT, PLAYBACK_EVENT_ERROR, NULL, 0, portMAX_DELAY);
@@ -68,8 +70,8 @@ void handle_playback(source_t *source) {
 		else if (size < 0 || playback_command == STOP_COMMAND) {
 			break;
 		}
-		else {
-			audio_output_write(&audio_output, (audio_sample_t *)buf, size / 8);
+		else if (size > 0) {
+			buffer_write(buffer, buf, size);
 		}
 	}
 }
@@ -92,7 +94,8 @@ void player_loop(void *parameters) {
 			if (status == SOURCE_NO_ERROR) {
 				ESP_LOGI(TAG, "start playback");
 				source.metadata_callback = on_metadata;
-				handle_playback(&source);
+				process_data(&source, &buffer);
+				buffer_clear(&buffer);
 				ESP_LOGI(TAG, "stop playback");
 			}
 			else {
@@ -110,9 +113,29 @@ void player_loop(void *parameters) {
 }
 
 
-void audio_loop(void *parameters) {
+void decoder_loop(void *parameters) {
 	ESP_LOGI(TAG, "audio loop");
-	vTaskSuspend(NULL);
+
+	char *stream_buffer = heap_caps_malloc(STREAM_BUFFER_SIZE, MALLOC_CAP_DEFAULT | MALLOC_CAP_SPIRAM);
+	if (!stream_buffer) {
+		ESP_LOGE(TAG, "stream buffer not allocated");
+		vTaskDelete(NULL);
+		return;
+	}
+	buffer.buf = stream_buffer;
+	buffer.size = STREAM_BUFFER_SIZE;
+	buffer_init(&buffer);
+
+	for (;;) {
+		if (buffer_read(&buffer, audio_process_buffer, sizeof(audio_process_buffer)) == ESP_OK) {
+			//audio_output_write(&audio_output, (audio_sample_t *)buffer.buf, buffer.size / 8);
+			printf(".");
+			fflush(stdout);
+		}
+	}
+
+	buffer_destroy(&buffer);
+	heap_caps_free(stream_buffer);
 	vTaskDelete(NULL);
 }
 
@@ -159,11 +182,11 @@ void init_player_events(void) {
 
 
 void init_player(void) {
+	if (xTaskCreatePinnedToCore(&decoder_loop, "decoder", 1024, NULL, 7, NULL, 0) != pdPASS) {
+		ESP_LOGE(TAG, "Decoder loop not itialized");
+	}
 	if (xTaskCreatePinnedToCore(&player_loop, "player", 8192, NULL, 6, NULL, 0) != pdPASS) {
 		ESP_LOGE(TAG, "Player task not initialized");
-	}
-	if (xTaskCreatePinnedToCore(&audio_loop, "audio", 128, NULL, 7, NULL, 0) != pdPASS) {
-		ESP_LOGE(TAG, "Audio loop not itialized");
 	}
 }
 

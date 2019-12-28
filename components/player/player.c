@@ -9,6 +9,7 @@
 
 #include "audio_output.h"
 #include "buffer/buffer.h"
+#include "decoder.h"
 #include "events.h"
 #include "player.h"
 #include "source.h"
@@ -26,6 +27,7 @@ typedef enum playback_command_t {
 
 char uri[MAX_URI_SIZE];
 char audio_process_buffer[AUDIO_PROCESS_BUFFER_SIZE];
+char source_read_buffer[256];
 audio_sample_t audio_buffer[AUDIO_OUTPUT_BUFFER_SIZE << 1];
 playback_command_t playback_command = NO_COMMAND;
 SemaphoreHandle_t source_changed_semaphore = NULL;
@@ -33,6 +35,7 @@ SemaphoreHandle_t playback_stopped_semaphore = NULL;
 SemaphoreHandle_t wait_data_semaphore = NULL;
 
 source_t source;
+decoder_t decoder;
 
 audio_output_t audio_output = {
 #ifndef SIMULATOR
@@ -46,38 +49,55 @@ audio_output_t audio_output = {
 buffer_t buffer;
 
 
-static void on_metadata(struct source_t *source, const char *key, const char *value) {
+static void on_metadata(source_t *source, const char *key, const char *value) {
 	ESP_LOGI(TAG, "Metadata: %s = %s", key, value);
 }
 
 
-void process_data(source_t *source, buffer_t *buffer) {
-	if (strcmp(source->content_type, "audio/mpeg")) {
-		ESP_LOGE(TAG, "wrong content-type, excepted audio/mpeg, got %s", source->content_type);
-		esp_event_post_to(player_event_loop, PLAYBACK_EVENT, PLAYBACK_EVENT_ERROR, NULL, 0, portMAX_DELAY);
-		return;
-	}
-
-	char buf[64];
-	for (;;) {
-		ssize_t size = source_read(source, buf, sizeof(buf));
-		if (size == 0) {
-			xSemaphoreTake(wait_data_semaphore, 1);
-		}
-		else if (size == SOURCE_READ_AGAIN) {
-			continue;
-		}
-		else if (size < 0 || playback_command == STOP_COMMAND) {
-			break;
-		}
-		else if (size > 0) {
-			buffer_write(buffer, buf, size);
-		}
-	}
+static void on_decoder_event(decoder_t *decoder, decoder_event_type_t event_type, void *data) {
+	ESP_LOGI(TAG, "decoder event");
 }
 
 
-void player_loop(void *parameters) {
+static esp_err_t process_data(source_t *source, buffer_t *buffer) {
+	if (strcmp(source->content_type, "audio/mpeg")) {
+		ESP_LOGE(TAG, "wrong content-type, excepted audio/mpeg, got %s", source->content_type);
+		esp_event_post_to(player_event_loop, PLAYBACK_EVENT, PLAYBACK_EVENT_ERROR, NULL, 0, portMAX_DELAY);
+		return ESP_FAIL;
+	}
+
+	esp_err_t status = ESP_OK;
+	decoder.callback = on_decoder_event;
+	status = decoder_init(&decoder, source);
+
+	if (status == ESP_OK) {
+		for (;;) {
+			ssize_t size = source_read(source, source_read_buffer, sizeof(source_read_buffer));
+			if (size == 0) {
+				xSemaphoreTake(wait_data_semaphore, 1);
+			}
+			else if (size == SOURCE_READ_AGAIN) {
+				continue;
+			}
+			else if (size < 0) {
+				status = ESP_FAIL;
+				break;
+			}
+			else if (playback_command == STOP_COMMAND || playback_command == QUIT_COMMAND) {
+				break;
+			}
+			else if (size > 0) {
+				buffer_write(buffer, source_read_buffer, size);
+			}
+		}
+	}
+
+	decoder_destroy(&decoder);
+	return ESP_OK;
+}
+
+
+static void player_loop(void *parameters) {
 	bzero(uri, sizeof(uri));
 	source_changed_semaphore = xSemaphoreCreateBinary();
 	playback_stopped_semaphore = xSemaphoreCreateBinary();
@@ -94,9 +114,12 @@ void player_loop(void *parameters) {
 			if (status == SOURCE_NO_ERROR) {
 				ESP_LOGI(TAG, "start playback");
 				source.metadata_callback = on_metadata;
-				process_data(&source, &buffer);
+				esp_err_t status = process_data(&source, &buffer);
 				buffer_clear(&buffer);
 				ESP_LOGI(TAG, "stop playback");
+				if (status != ESP_OK) {
+					esp_event_post_to(player_event_loop, PLAYBACK_EVENT, PLAYBACK_EVENT_ERROR, NULL, 0, portMAX_DELAY);
+				}
 			}
 			else {
 				esp_event_post_to(player_event_loop, PLAYBACK_EVENT, PLAYBACK_EVENT_ERROR, NULL, 0, portMAX_DELAY);
@@ -113,7 +136,7 @@ void player_loop(void *parameters) {
 }
 
 
-void decoder_loop(void *parameters) {
+static void decoder_loop(void *parameters) {
 	ESP_LOGI(TAG, "audio loop");
 
 	char *stream_buffer = heap_caps_malloc(STREAM_BUFFER_SIZE, MALLOC_CAP_DEFAULT | MALLOC_CAP_SPIRAM);
@@ -131,6 +154,7 @@ void decoder_loop(void *parameters) {
 			//audio_output_write(&audio_output, (audio_sample_t *)buffer.buf, buffer.size / 8);
 			printf(".");
 			fflush(stdout);
+			decoder_feed(&decoder, audio_process_buffer, sizeof(audio_process_buffer));
 		}
 	}
 

@@ -56,7 +56,6 @@ typedef struct source_data_http_t {
 
 
 typedef struct source_t {
-	void *handle; // Any handle
 	source_type_t type;
 	source_metadata_callback_t metadata_callback;
 	char content_type[HTTP_HEADER_VALUE_BUFFER_SIZE];

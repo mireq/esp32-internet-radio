@@ -60,6 +60,11 @@ void uri_parse(uri_t *uri, const char *text) {
 			uri->host = pos;
 			continue;
 		}
+		if (port_start && i == port_start - text - 1) {
+			pos++;
+			i += (path_start - port_start);
+			continue;
+		}
 		if (i == path_start - text) {
 			pos++;
 			uri->path = pos;

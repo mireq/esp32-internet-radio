@@ -26,9 +26,6 @@ typedef enum playback_command_t {
 
 
 char uri[MAX_URI_SIZE];
-char audio_process_buffer[AUDIO_PROCESS_BUFFER_SIZE];
-char source_read_buffer[256];
-audio_sample_t audio_buffer[AUDIO_OUTPUT_BUFFER_SIZE << 1];
 playback_command_t playback_command = NO_COMMAND;
 SemaphoreHandle_t source_changed_semaphore = NULL;
 SemaphoreHandle_t playback_stopped_semaphore = NULL;
@@ -55,7 +52,10 @@ static void on_metadata(source_t *source, const char *key, const char *value) {
 
 
 static void on_decoder_event(decoder_t *decoder, decoder_event_type_t event_type, void *data) {
-	ESP_LOGI(TAG, "decoder event");
+	if (event_type == DECODER_PCM) {
+		decoder_pcm_data_t *pcm_data = (decoder_pcm_data_t *)data;
+		audio_output_write(&audio_output, pcm_data->data, pcm_data->length);
+	}
 }
 
 
@@ -67,6 +67,7 @@ static esp_err_t process_data(source_t *source, buffer_t *buffer) {
 	}
 
 	esp_err_t status = ESP_OK;
+	static char source_read_buffer[AUDIO_PROCESS_BUFFER_SIZE];
 	decoder.callback = on_decoder_event;
 	status = decoder_init(&decoder, source);
 
@@ -138,6 +139,7 @@ static void player_loop(void *parameters) {
 
 static void decoder_loop(void *parameters) {
 	ESP_LOGI(TAG, "audio loop");
+	static char audio_process_buffer[AUDIO_PROCESS_BUFFER_SIZE];
 
 	char *stream_buffer = heap_caps_malloc(STREAM_BUFFER_SIZE, MALLOC_CAP_DEFAULT | MALLOC_CAP_SPIRAM);
 	if (!stream_buffer) {
@@ -151,10 +153,10 @@ static void decoder_loop(void *parameters) {
 
 	for (;;) {
 		if (buffer_read(&buffer, audio_process_buffer, sizeof(audio_process_buffer)) == ESP_OK) {
-			//audio_output_write(&audio_output, (audio_sample_t *)buffer.buf, buffer.size / 8);
-			printf(".");
-			fflush(stdout);
-			decoder_feed(&decoder, audio_process_buffer, sizeof(audio_process_buffer));
+			if (decoder_feed(&decoder, audio_process_buffer, sizeof(audio_process_buffer)) != ESP_OK) {
+				ESP_LOGE(TAG, "decoder error");
+				esp_event_post_to(player_event_loop, PLAYBACK_EVENT, PLAYBACK_EVENT_ERROR, NULL, 0, portMAX_DELAY);
+			}
 		}
 	}
 

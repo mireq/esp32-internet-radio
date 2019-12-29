@@ -56,6 +56,17 @@ config IPV4_SECONDARY_DNS
 
 endmenu
 
+menu "Control interface"
+
+config UDP_CONTROL_PORT
+	int "UDP control port"
+	range 0 65535
+	default "8001"
+	help
+		Port for UDP control interface
+
+endmenu
+
 config BUILD_SIMULATOR
 	bool "Build simulator"
 	help

@@ -1,5 +1,6 @@
 set(COMPONENT_SRCS
 	"audio_output.c"
+	"control.c"
 	"decoder.c"
 	"events.c"
 	"player.c"

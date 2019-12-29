@@ -9,6 +9,7 @@ void app_main(void)
 	init_player();
 	init_events();
 	init_network();
+	init_control();
 	for (;;) {
 		vTaskDelay(10000);
 		printf("tick\n");

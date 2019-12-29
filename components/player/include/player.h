@@ -1,5 +1,6 @@
 #pragma once
 
+#include "control.h"
 
 #define PLAY_RETRY_TIMEOUT 1000
 #define STREAM_BUFFER_SIZE (64 * 1024)

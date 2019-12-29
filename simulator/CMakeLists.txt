@@ -21,12 +21,12 @@ include_directories(
 
 add_executable(
 	${PROJECT_NAME}
-	init.c
-	startup.c
-	esp_log.c
 	esp_err.c
 	esp_event.c
 	esp_heap_caps.c
+	esp_log.c
+	init.c
+	startup.c
 	"${CMAKE_SOURCE_DIR}/../libs/Posix_GCC_Simulator/FreeRTOS_Posix/FreeRTOS_Kernel/croutine.c"
 	"${CMAKE_SOURCE_DIR}/../libs/Posix_GCC_Simulator/FreeRTOS_Posix/FreeRTOS_Kernel/list.c"
 	"${CMAKE_SOURCE_DIR}/../libs/Posix_GCC_Simulator/FreeRTOS_Posix/FreeRTOS_Kernel/queue.c"
@@ -37,6 +37,7 @@ add_executable(
 	"${CMAKE_SOURCE_DIR}/../components/buffer/buffer.c"
 	"${CMAKE_SOURCE_DIR}/../components/http_header_parser/http_header_parser.c"
 	"${CMAKE_SOURCE_DIR}/../components/player/audio_output.c"
+	"${CMAKE_SOURCE_DIR}/../components/player/control.c"
 	"${CMAKE_SOURCE_DIR}/../components/player/decoder.c"
 	"${CMAKE_SOURCE_DIR}/../components/player/events.c"
 	"${CMAKE_SOURCE_DIR}/../components/player/player.c"

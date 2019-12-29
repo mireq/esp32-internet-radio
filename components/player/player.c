@@ -229,7 +229,9 @@ void init_player(void) {
 	if (xTaskCreatePinnedToCore(&player_loop, "player", 8192, NULL, 5, NULL, 0) != pdPASS) {
 		ESP_LOGE(TAG, "Player task not initialized");
 	}
-	xTaskCreatePinnedToCore(&player_status_loop, "player_status", 1024, NULL, 4, NULL, 0);
+	if (xTaskCreatePinnedToCore(&player_status_loop, "player_status", 1024, NULL, 4, NULL, 0) != pdPASS) {
+		ESP_LOGE(TAG, "Player status task not initialized");
+	}
 }
 
 

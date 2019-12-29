@@ -82,6 +82,7 @@ static esp_err_t decoder_mpeg_feed(decoder_t *decoder, char *buf, ssize_t size) 
 		}
 		else {
 			mad_synth_frame(&mpeg->mad_synth, &mpeg->mad_frame);
+			printf("frame %d\n", mpeg->mad_synth.pcm.length);
 			decoder_mpeg_prepare_audio(decoder);
 		}
 

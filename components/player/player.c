@@ -208,7 +208,7 @@ void init_player_events(void) {
 
 
 void init_player(void) {
-	if (xTaskCreatePinnedToCore(&decoder_loop, "decoder", 1024, NULL, 7, NULL, 0) != pdPASS) {
+	if (xTaskCreatePinnedToCore(&decoder_loop, "decoder", 8192, NULL, 7, NULL, 0) != pdPASS) {
 		ESP_LOGE(TAG, "Decoder loop not itialized");
 	}
 	if (xTaskCreatePinnedToCore(&player_loop, "player", 8192, NULL, 6, NULL, 0) != pdPASS) {

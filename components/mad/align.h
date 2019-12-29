@@ -1,1 +1,2 @@
-../../libs/ESP8266_MP3_DECODER/mp3/mad/align.h
+char unalChar(const void *adr);
+short unalShort(const void *adr);

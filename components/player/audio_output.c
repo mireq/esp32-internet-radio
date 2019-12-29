@@ -134,7 +134,7 @@ esp_err_t audio_output_write(audio_output_t *output, audio_sample_t *buf, size_t
 	return ESP_OK;
 #else
 	size_t bytes_written;
-	i2s_write(output->port, buf, samples_count * AUDIO_BITS_PER_SAMPLE * 2, &bytes_written, portMAX_DELAY);
+	i2s_write(output->port, buf, samples_count * sizeof(audio_sample_t) * 2, &bytes_written, portMAX_DELAY);
 	return ESP_OK;
 #endif
 }

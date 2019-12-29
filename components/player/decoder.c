@@ -42,11 +42,20 @@ static void decoder_mpeg_prepare_audio(decoder_t *decoder) {
 	const mad_fixed_t *right_ch = pcm->channels == 2 ? pcm->samples[1] : pcm->samples[0];
 	const mad_fixed_t *left_ch = pcm->samples[0];
 	int32_t sample;
-	for (size_t i = 0; i < pcm->length; ++i) {
+	for (size_t i = 0; i < pcm->length * 2; ++i) {
+		if (i % 2 == 0) {
+			sample = *right_ch++;
+		}
+		else {
+			sample = *left_ch++;
+		}
+		data[i] = sample;
+		/*
 		sample = decoder_mpeg_scale(*right_ch++);
 		data[i << 1] = sample;
 		sample = decoder_mpeg_scale(*left_ch++);
 		data[(i << 1) + 1] = sample;
+		*/
 	}
 	pcm_data.length = pcm->length;
 	if (decoder->callback != NULL) {
@@ -82,7 +91,6 @@ static esp_err_t decoder_mpeg_feed(decoder_t *decoder, char *buf, ssize_t size) 
 		}
 		else {
 			mad_synth_frame(&mpeg->mad_synth, &mpeg->mad_frame);
-			printf("frame %d\n", mpeg->mad_synth.pcm.length);
 			decoder_mpeg_prepare_audio(decoder);
 		}
 

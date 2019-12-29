@@ -55,6 +55,7 @@ static void on_decoder_event(decoder_t *decoder, decoder_event_type_t event_type
 	if (event_type == DECODER_PCM) {
 		decoder_pcm_data_t *pcm_data = (decoder_pcm_data_t *)data;
 		audio_output_write(&audio_output, pcm_data->data, pcm_data->length);
+		taskYIELD();
 	}
 }
 
@@ -208,10 +209,10 @@ void init_player_events(void) {
 
 
 void init_player(void) {
-	if (xTaskCreatePinnedToCore(&decoder_loop, "decoder", 8192, NULL, 7, NULL, 0) != pdPASS) {
+	if (xTaskCreatePinnedToCore(&decoder_loop, "decoder", 8192, NULL, 5, NULL, 0) != pdPASS) {
 		ESP_LOGE(TAG, "Decoder loop not itialized");
 	}
-	if (xTaskCreatePinnedToCore(&player_loop, "player", 8192, NULL, 6, NULL, 0) != pdPASS) {
+	if (xTaskCreatePinnedToCore(&player_loop, "player", 8192, NULL, 5, NULL, 0) != pdPASS) {
 		ESP_LOGE(TAG, "Player task not initialized");
 	}
 }

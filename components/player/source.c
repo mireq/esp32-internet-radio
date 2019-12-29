@@ -266,24 +266,20 @@ static void parse_icy_metadata(source_t *source, char *buf) {
 	if (title == NULL) {
 		return;
 	}
-	title += sizeof("StreamTitle=") - 1;
-	if (title[0] == '"' || title[0] == '\'') {
-		title++;
-	}
+	title += sizeof("StreamTitle=");
 	char *title_end = title;
 	title_end = strstr(title_end, ";");
 	if (title_end == NULL) {
 		return;
 	}
 	title_end--;
-	if (title_end[0] == '"' || title_end[0] == '\'') {
-		title_end--;
-	}
 
-	bzero(meta_value_buffer, sizeof(meta_value_buffer));
-	strncpy(meta_value_buffer, title, title_end - title);
-	if (source->metadata_callback) {
-		source->metadata_callback(source, "title", meta_value_buffer);
+	if (title_end > title) {
+		bzero(meta_value_buffer, sizeof(meta_value_buffer));
+		strncpy(meta_value_buffer, title, title_end - title);
+		if (source->metadata_callback) {
+			source->metadata_callback(source, "title", meta_value_buffer);
+		}
 	}
 }
 

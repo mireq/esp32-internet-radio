@@ -60,7 +60,6 @@ static void on_decoder_event(decoder_t *decoder, decoder_event_type_t event_type
 	if (event_type == DECODER_PCM) {
 		decoder_pcm_data_t *pcm_data = (decoder_pcm_data_t *)data;
 		audio_output_write(&audio_output, pcm_data->data, pcm_data->length);
-		taskYIELD();
 	}
 }
 
@@ -73,7 +72,7 @@ static esp_err_t process_data(source_t *source, buffer_t *network_buffer) {
 	}
 
 	esp_err_t status = ESP_OK;
-	static char source_read_buffer[AUDIO_PROCESS_BUFFER_SIZE];
+	static char source_read_buffer[SOURCE_READ_BUFFER_SIZE];
 	decoder.callback = on_decoder_event;
 	status = decoder_init(&decoder, source);
 
@@ -174,7 +173,8 @@ static void decoder_loop(void *parameters) {
 
 void start_playback(void) {
 	stop_playback();
-	strcpy(uri, "http://ice1.somafm.com/illstreet-128-mp3");
+	//strcpy(uri, "http://ice1.somafm.com/illstreet-128-mp3");
+	strcpy(uri, "http://icecast.stv.livebox.sk:80/fm_128.mp3");
 	xSemaphoreGive(source_changed_semaphore);
 }
 

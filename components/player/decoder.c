@@ -1,6 +1,8 @@
 #include <string.h>
 
 #include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 
 #include "decoder.h"
 
@@ -22,6 +24,7 @@ static esp_err_t decoder_mpeg_init(decoder_t *decoder, source_t *source) {
 }
 
 
+/*
 static int32_t decoder_mpeg_scale(mad_fixed_t sample) {
 	int32_t output = sample << (sizeof(int32_t) * 8 - MAD_F_FRACBITS - 1);
 	if (sample < 0) {
@@ -29,6 +32,7 @@ static int32_t decoder_mpeg_scale(mad_fixed_t sample) {
 	}
 	return output;
 }
+*/
 
 
 static void decoder_mpeg_prepare_audio(decoder_t *decoder) {
@@ -90,8 +94,11 @@ static esp_err_t decoder_mpeg_feed(decoder_t *decoder, char *buf, ssize_t size) 
 			}
 		}
 		else {
+			taskYIELD();
 			mad_synth_frame(&mpeg->mad_synth, &mpeg->mad_frame);
+			taskYIELD();
 			decoder_mpeg_prepare_audio(decoder);
+			taskYIELD();
 		}
 
 		if (!mpeg->mad_stream.next_frame) {

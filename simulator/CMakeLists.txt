@@ -45,7 +45,7 @@ add_executable(
 	"${CMAKE_SOURCE_DIR}/../main/main.c"
 )
 
-add_definitions(-D_GNU_SOURCE -DSIMULATOR)
+add_definitions(-D_GNU_SOURCE -DSIMULATOR -g3 -ggdb)
 
 target_link_libraries(
 	${PROJECT_NAME}

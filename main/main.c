@@ -10,7 +10,7 @@ void app_main(void)
 	init_events();
 	init_network();
 	for (;;) {
-		vTaskDelay(1000);
+		vTaskDelay(10000);
 		printf("tick\n");
 	}
 }

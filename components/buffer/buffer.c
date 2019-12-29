@@ -98,3 +98,24 @@ void buffer_destroy(buffer_t *buffer) {
 	buffer->can_read_semaphore = NULL;
 	buffer->destroying = false;
 }
+
+
+size_t buffer_get_full(buffer_t *buffer) {
+	size_t r_pos = buffer->r_pos;
+	size_t w_pos = buffer->w_pos;
+	size_t size = buffer->size;
+	if (size == 0) {
+		return 0;
+	}
+	if (w_pos >= r_pos) {
+		return w_pos - r_pos;
+	}
+	else {
+		return size - r_pos + w_pos;
+	}
+}
+
+
+size_t buffer_get_free(buffer_t *buffer) {
+	return buffer->size - buffer_get_full(buffer);
+}

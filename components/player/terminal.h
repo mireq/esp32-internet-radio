@@ -1,0 +1,1 @@
+#define TERM_ERASE_LINE "\033[2K"

@@ -13,6 +13,7 @@
 #include "events.h"
 #include "player.h"
 #include "source.h"
+#include "terminal.h"
 
 
 static const char *TAG = "player";
@@ -25,16 +26,16 @@ typedef enum playback_command_t {
 } playback_command_t;
 
 
-char uri[MAX_URI_SIZE];
-playback_command_t playback_command = NO_COMMAND;
-SemaphoreHandle_t source_changed_semaphore = NULL;
-SemaphoreHandle_t playback_stopped_semaphore = NULL;
-SemaphoreHandle_t wait_data_semaphore = NULL;
+static char uri[MAX_URI_SIZE];
+static playback_command_t playback_command = NO_COMMAND;
+static SemaphoreHandle_t source_changed_semaphore = NULL;
+static SemaphoreHandle_t playback_stopped_semaphore = NULL;
+static SemaphoreHandle_t wait_data_semaphore = NULL;
 
-source_t source;
-decoder_t decoder;
+static source_t source;
+static decoder_t decoder;
 
-audio_output_t audio_output = {
+static audio_output_t audio_output = {
 #ifndef SIMULATOR
 	.port = AUDIO_I2S_PORT,
 #else
@@ -43,7 +44,11 @@ audio_output_t audio_output = {
 	.sample_rate = 44100,
 };
 
-buffer_t buffer;
+static buffer_t network_buffer = {
+	.size = 0,
+	.r_pos = 0,
+	.w_pos = 0,
+};
 
 
 static void on_metadata(source_t *source, const char *key, const char *value) {
@@ -60,7 +65,7 @@ static void on_decoder_event(decoder_t *decoder, decoder_event_type_t event_type
 }
 
 
-static esp_err_t process_data(source_t *source, buffer_t *buffer) {
+static esp_err_t process_data(source_t *source, buffer_t *network_buffer) {
 	if (strcmp(source->content_type, "audio/mpeg")) {
 		ESP_LOGE(TAG, "wrong content-type, excepted audio/mpeg, got %s", source->content_type);
 		esp_event_post_to(player_event_loop, PLAYBACK_EVENT, PLAYBACK_EVENT_ERROR, NULL, 0, portMAX_DELAY);
@@ -89,7 +94,7 @@ static esp_err_t process_data(source_t *source, buffer_t *buffer) {
 				break;
 			}
 			else if (size > 0) {
-				buffer_write(buffer, source_read_buffer, size);
+				buffer_write(network_buffer, source_read_buffer, size);
 			}
 		}
 	}
@@ -116,8 +121,8 @@ static void player_loop(void *parameters) {
 			if (status == SOURCE_NO_ERROR) {
 				ESP_LOGI(TAG, "start playback");
 				source.metadata_callback = on_metadata;
-				esp_err_t status = process_data(&source, &buffer);
-				buffer_clear(&buffer);
+				esp_err_t status = process_data(&source, &network_buffer);
+				buffer_clear(&network_buffer);
 				ESP_LOGI(TAG, "stop playback");
 				if (status != ESP_OK) {
 					esp_event_post_to(player_event_loop, PLAYBACK_EVENT, PLAYBACK_EVENT_ERROR, NULL, 0, portMAX_DELAY);
@@ -148,12 +153,12 @@ static void decoder_loop(void *parameters) {
 		vTaskDelete(NULL);
 		return;
 	}
-	buffer.buf = stream_buffer;
-	buffer.size = STREAM_BUFFER_SIZE;
-	buffer_init(&buffer);
+	network_buffer.buf = stream_buffer;
+	network_buffer.size = STREAM_BUFFER_SIZE;
+	buffer_init(&network_buffer);
 
 	for (;;) {
-		if (buffer_read(&buffer, audio_process_buffer, sizeof(audio_process_buffer)) == ESP_OK) {
+		if (buffer_read(&network_buffer, audio_process_buffer, sizeof(audio_process_buffer)) == ESP_OK) {
 			if (decoder_feed(&decoder, audio_process_buffer, sizeof(audio_process_buffer)) != ESP_OK) {
 				ESP_LOGE(TAG, "decoder error");
 				esp_event_post_to(player_event_loop, PLAYBACK_EVENT, PLAYBACK_EVENT_ERROR, NULL, 0, portMAX_DELAY);
@@ -161,7 +166,7 @@ static void decoder_loop(void *parameters) {
 		}
 	}
 
-	buffer_destroy(&buffer);
+	buffer_destroy(&network_buffer);
 	heap_caps_free(stream_buffer);
 	vTaskDelete(NULL);
 }
@@ -208,6 +213,15 @@ void init_player_events(void) {
 }
 
 
+static void player_status_loop(void *parameters) {
+	while (1) {
+		printf(TERM_ERASE_LINE "\rb: %05d | %05d | %05d", (int)network_buffer.r_pos, (int)network_buffer.w_pos, (int)buffer_get_full(&network_buffer));
+		fflush(stdout);
+		vTaskDelay(100 / portTICK_PERIOD_MS);
+	}
+}
+
+
 void init_player(void) {
 	if (xTaskCreatePinnedToCore(&decoder_loop, "decoder", 8192, NULL, 5, NULL, 0) != pdPASS) {
 		ESP_LOGE(TAG, "Decoder loop not itialized");
@@ -215,6 +229,7 @@ void init_player(void) {
 	if (xTaskCreatePinnedToCore(&player_loop, "player", 8192, NULL, 5, NULL, 0) != pdPASS) {
 		ESP_LOGE(TAG, "Player task not initialized");
 	}
+	xTaskCreatePinnedToCore(&player_status_loop, "player_status", 1024, NULL, 4, NULL, 0);
 }
 
 

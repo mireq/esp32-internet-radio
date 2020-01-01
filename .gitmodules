@@ -1,6 +1,6 @@
-[submodule "libs/ESP8266_MP3_DECODER"]
-	path = libs/ESP8266_MP3_DECODER
-	url = https://github.com/espressif/ESP8266_MP3_DECODER
-[submodule "libs/Posix_GCC_Simulator"]
-	path = libs/Posix_GCC_Simulator
+[submodule "simulator/lwip/src"]
+	path = simulator/lwip/src
+	url = https://git.savannah.nongnu.org/git/lwip.git
+[submodule "simulator/freertos/src"]
+	path = simulator/freertos/src
 	url = https://github.com/mireq/Posix_GCC_Simulator.git

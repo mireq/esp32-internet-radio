@@ -1,1 +1,1 @@
-../../../libs/Posix_GCC_Simulator/FreeRTOS_Posix/FreeRTOS_Kernel/include/projdefs.h
+../../freertos/src/FreeRTOS_Posix/FreeRTOS_Kernel/include/projdefs.h

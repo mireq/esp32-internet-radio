@@ -174,7 +174,8 @@ static void decoder_loop(void *parameters) {
 void start_playback(void) {
 	stop_playback();
 	//strcpy(uri, "http://ice1.somafm.com/illstreet-128-mp3");
-	strcpy(uri, "http://icecast.stv.livebox.sk:80/fm_128.mp3");
+	//strcpy(uri, "http://icecast.stv.livebox.sk:80/fm_128.mp3");
+	strcpy(uri, "http://10.0.0.1:8000/test.mp3");
 	xSemaphoreGive(source_changed_semaphore);
 }
 
@@ -215,7 +216,7 @@ void init_player_events(void) {
 
 static void player_status_loop(void *parameters) {
 	while (1) {
-		printf(TERM_ERASE_LINE "\rb: %05d | %05d | %05d", (int)network_buffer.r_pos, (int)network_buffer.w_pos, (int)buffer_get_full(&network_buffer));
+		printf(TERM_ERASE_LINE "\rb: %05d | %05d | %05d\r", (int)network_buffer.r_pos, (int)network_buffer.w_pos, (int)buffer_get_full(&network_buffer));
 		fflush(stdout);
 		vTaskDelay(100 / portTICK_PERIOD_MS);
 	}

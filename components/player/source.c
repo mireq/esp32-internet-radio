@@ -1,5 +1,4 @@
 #include <ctype.h>
-#include <fcntl.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -300,7 +299,7 @@ static ssize_t source_http_read_icy_metadata(source_t *source) {
 		requested = http->icy_meta_size - http->icy_meta_readed;
 	}
 	while (received == -1) {
-		received = recv(source->data.http.sock, buf, requested, MSG_DONTWAIT);
+		received = recv(source->data.http.sock, buf, requested, 0);
 		if (received == -1 && errno != EINTR) {
 			if (errno == EAGAIN) {
 				received = 0;

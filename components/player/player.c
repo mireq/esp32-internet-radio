@@ -174,8 +174,7 @@ static void decoder_loop(void *parameters) {
 void start_playback(void) {
 	stop_playback();
 	//strcpy(uri, "http://ice1.somafm.com/illstreet-128-mp3");
-	//strcpy(uri, "http://icecast.stv.livebox.sk:80/fm_128.mp3");
-	strcpy(uri, "http://10.0.0.1:8000/test.mp3");
+	strcpy(uri, "http://icecast.stv.livebox.sk:80/fm_128.mp3");
 	xSemaphoreGive(source_changed_semaphore);
 }
 

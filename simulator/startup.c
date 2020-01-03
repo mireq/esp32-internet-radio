@@ -2,6 +2,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "freertos/task.h"
+#include "lwip/dns.h"
 #include "lwip/init.h"
 #include "lwip/ip_addr.h"
 #include "lwip/netif.h"
@@ -43,6 +44,10 @@ static void setup_network(void *parameters) {
 	if (!netif_add(&netif, &ipaddr, &netmask, &gw, NULL, tapif_init, ethernet_input)) {
 		LWIP_ASSERT("Net interface failed to initialize\r\n", 0);
 	}
+
+	ip_addr_t dnsserver;
+	IP_ADDR4(&dnsserver, 8, 8, 8, 8);
+	dns_setserver(0, &dnsserver);
 
 	netif_set_default(&netif);
 	netif_set_up(&netif);

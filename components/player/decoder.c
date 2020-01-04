@@ -71,7 +71,7 @@ static void decoder_mpeg_prepare_audio(decoder_t *decoder) {
 static esp_err_t decoder_mpeg_feed(decoder_t *decoder, char *buf, ssize_t size) {
 	decoder_data_mpeg_t *mpeg = &decoder->data.mpeg;
 	size_t processed_size = mpeg->w_pos - mpeg->buf;
-	if (processed_size + MAD_BUFFER_GUARD + size > MAX_FRAME_SIZE) {
+	if (processed_size + MAD_BUFFER_GUARD + size >= MAX_FRAME_SIZE) {
 		memmove(mpeg->buf, mpeg->w_pos, MAX_FRAME_SIZE - MAD_BUFFER_GUARD - processed_size);
 		mpeg->w_pos = mpeg->buf;
 	}

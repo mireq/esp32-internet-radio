@@ -16,7 +16,9 @@ void http_header_parser_init(http_header_parser_t *parser, header_parser_callbac
 	parser->header_error = 0;
 	parser->callback = callback;
 	parser->last_c = '\0';
+	parser->request = 0;
 }
+
 
 void http_header_parser_feed(http_header_parser_t *parser, char c) {
 	if (parser->header_finished || parser->header_error) {
@@ -25,12 +27,21 @@ void http_header_parser_feed(http_header_parser_t *parser, char c) {
 	if (c == '\n' && parser->last_c == '\r') {
 		// Header
 		if (parser->value_length != -1 && parser->key_length == -1) {
-			parser->status = atoi(parser->value + sizeof("HTTP/1.0 ") - 1);
-			parser->key_length = -1;
-			parser->value_length = -1;
-			bzero(parser->key, sizeof(parser->key));
-			bzero(parser->value, sizeof(parser->value));
-			parser->callback(parser);
+			if (parser->request) {
+				parser->callback(parser);
+				parser->key_length = -1;
+				parser->value_length = -1;
+				bzero(parser->key, sizeof(parser->key));
+				bzero(parser->value, sizeof(parser->value));
+			}
+			else {
+				parser->status = atoi(parser->value + sizeof("HTTP/1.0 ") - 1);
+				parser->key_length = -1;
+				parser->value_length = -1;
+				bzero(parser->key, sizeof(parser->key));
+				bzero(parser->value, sizeof(parser->value));
+				parser->callback(parser);
+			}
 		}
 		else if (parser->key_length == -1 && parser->value_length == -1) {
 			parser->header_finished = 1;

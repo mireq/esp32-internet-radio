@@ -4,3 +4,6 @@
 [submodule "simulator/freertos/src"]
 	path = simulator/freertos/src
 	url = https://github.com/mireq/Posix_GCC_Simulator.git
+[submodule "simulator/mbedtls/src"]
+	path = simulator/mbedtls/src
+	url = https://github.com/ARMmbed/mbedtls.git

@@ -36,10 +36,9 @@ static source_t source;
 static decoder_t decoder;
 
 static audio_output_t audio_output = {
-#ifndef SIMULATOR
-	.port = AUDIO_I2S_PORT,
+#ifdef SIMULATOR
 #else
-	.handle = NULL,
+	.port = AUDIO_I2S_PORT,
 #endif
 	.sample_rate = 44100,
 };

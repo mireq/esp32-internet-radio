@@ -19,7 +19,7 @@ static const char *TAG = "player_source";
 char meta_value_buffer[MAX_META_VALUE_SIZE + 1];
 
 
-void uri_parse(uri_t *uri, const char *text) {
+static void uri_parse(uri_t *uri, const char *text) {
 	char c;
 	uri->protocol = NULL;
 	uri->port = -1;
@@ -79,9 +79,9 @@ void uri_parse(uri_t *uri, const char *text) {
 }
 
 
-source_error_t source_http_init(source_t *source, const uri_t *uri);
-void source_http_destroy(source_t *source);
-ssize_t source_http_read(source_t *source, char *buf, ssize_t size);
+static source_error_t source_http_init(source_t *source, const uri_t *uri);
+static void source_http_destroy(source_t *source);
+static ssize_t source_http_read(source_t *source, char *buf, ssize_t size);
 
 
 source_error_t source_init(source_t *source, const char *uri) {
@@ -124,7 +124,7 @@ typedef struct http_header_t {
 } http_header_t;
 
 
-void on_http_header_parser_fragment(http_header_parser_t *parser) {
+static void on_http_header_parser_fragment(http_header_parser_t *parser) {
 	http_header_t *header = (http_header_t *)parser->handle;
 
 	if (parser->header_finished) {
@@ -152,7 +152,7 @@ void on_http_header_parser_fragment(http_header_parser_t *parser) {
 }
 
 
-source_error_t source_http_init(source_t *source, const uri_t *uri) {
+static source_error_t source_http_init(source_t *source, const uri_t *uri) {
 	ESP_LOGI(TAG, "opening source http://%s:%d%s", uri->host, uri->port, uri->path);
 	source_data_http_t *http = &source->data.http;
 	http->icy_meta_interval = 0;
@@ -223,7 +223,7 @@ source_error_t source_http_init(source_t *source, const uri_t *uri) {
 	for (size_t i = 0; i < MAX_HTTP_HEADER_SIZE; ++i) {
 		ssize_t received = -1;
 		while (received == -1) {
-			received = read(sock, &c, sizeof(c));
+			received = recv(sock, &c, sizeof(c), 0);
 			if (received == -1 && errno != EINTR) {
 				break;
 			}
@@ -250,7 +250,7 @@ source_error_t source_http_init(source_t *source, const uri_t *uri) {
 	return SOURCE_NO_ERROR;
 }
 
-void source_http_destroy(source_t *source) {
+static void source_http_destroy(source_t *source) {
 	source_data_http_t *http = &source->data.http;
 	if (http->sock >= 0) {
 		close(http->sock);
@@ -327,7 +327,7 @@ static ssize_t source_http_read_icy_metadata(source_t *source) {
 	return received;
 }
 
-ssize_t source_http_read(source_t *source, char *buf, ssize_t size) {
+static ssize_t source_http_read(source_t *source, char *buf, ssize_t size) {
 	source_data_http_t *http = &source->data.http;
 	ssize_t received = -1;
 	ssize_t requested = size;

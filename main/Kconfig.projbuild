@@ -58,12 +58,26 @@ endmenu
 
 menu "Control interface"
 
-config UDP_CONTROL_PORT
-	int "UDP control port"
-	range 0 65535
-	default "8001"
+config HTTP_CONTROL
+	bool "Build http control"
+	default y
 	help
-		Port for UDP control interface
+		Control interface using http
+
+config HTTP_CONTROL_PORT
+	int "HTTP control port"
+	range 0 65535
+	default "80"
+	depends on HTTP_CONTROL
+	help
+		Port for HTTP control interface
+
+config HTTP_WEBINTERFACE_URL
+	string "URL of web interface"
+	default "http://localhost:8000/"
+	depends on HTTP_CONTROL
+	help
+		URL of uploaded webinterface directory
 
 endmenu
 

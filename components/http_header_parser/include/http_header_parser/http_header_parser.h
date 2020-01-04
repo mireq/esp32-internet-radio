@@ -24,6 +24,7 @@ typedef struct http_header_parser_t {
 	bool header_error;
 	header_parser_callback callback;
 	char last_c;
+	bool request; // Parse request
 } http_header_parser_t;
 
 

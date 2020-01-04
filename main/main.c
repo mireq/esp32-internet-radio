@@ -1,5 +1,7 @@
+#include "control_http.h"
 #include "init.h"
 #include "player.h"
+#include "sdkconfig.h"
 
 
 void app_main(void)
@@ -9,7 +11,9 @@ void app_main(void)
 	init_player();
 	init_events();
 	init_network();
-	init_control();
+#if CONFIG_HTTP_CONTROL
+	init_http_control();
+#endif
 	for (;;) {
 		vTaskDelay(10000);
 		printf("tick\n");

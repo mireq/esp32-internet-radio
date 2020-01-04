@@ -54,26 +54,26 @@ esp_err_t audio_output_init(audio_output_t *output) {
 
 	return ESP_OK;
 #else
-	i2s_config_t i2s_config = {
+	static const i2s_config_t i2s_config = {
 		.mode = I2S_MODE_MASTER | I2S_MODE_TX,
-		.sample_rate = output->sample_rate,
+		.sample_rate = 44100,
 		.bits_per_sample = AUDIO_BITS_PER_SAMPLE,
 		.channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT,
 		.communication_format = I2S_COMM_FORMAT_I2S | I2S_COMM_FORMAT_I2S_MSB,
-		.intr_alloc_flags = ESP_INTR_FLAG_LEVEL2,
+		.intr_alloc_flags = 0,
 		.dma_buf_count = AUDIO_OUTPUT_BUFFER_COUNT,
 		.dma_buf_len = AUDIO_OUTPUT_BUFFER_SIZE,
 		.use_apll = false,
 		.tx_desc_auto_clear = true,
 	};
-	i2s_pin_config_t pin_config = {
+	static const i2s_pin_config_t pin_config = {
 		.bck_io_num = GPIO_NUM_26,
 		.ws_io_num = GPIO_NUM_25,
 		.data_out_num = GPIO_NUM_22,
 		.data_in_num = I2S_PIN_NO_CHANGE
 	};
 	ESP_ERROR_CHECK(i2s_driver_install(output->port, &i2s_config, 0, NULL));
-	ESP_ERROR_CHECK(i2s_zero_dma_buffer(output->port));
+	ESP_ERROR_CHECK(i2s_set_sample_rates(output->port, 44100));
 	ESP_ERROR_CHECK(i2s_set_pin(output->port, &pin_config));
 	ESP_LOGI(TAG, "I2S initialized");
 	return ESP_OK;

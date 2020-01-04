@@ -2,8 +2,9 @@ cmake_minimum_required(VERSION 3.5)
 
 project(simulator)
 
-add_subdirectory("lwip")
 add_subdirectory("freertos")
+add_subdirectory("lwip")
+add_subdirectory("mbedtls")
 
 include_directories(
 	"${CMAKE_SOURCE_DIR}/include/"
@@ -12,8 +13,11 @@ include_directories(
 	"${CMAKE_SOURCE_DIR}/lwip/src/src/include"
 	"${CMAKE_SOURCE_DIR}/lwip/src/contrib/ports/freertos/include"
 	"${CMAKE_SOURCE_DIR}/lwip/src/contrib/ports/unix/port/include"
+	"${CMAKE_SOURCE_DIR}/mbedtls/src/include"
+	"${CMAKE_SOURCE_DIR}/mbedtls/src/crypto/include"
 	"${CMAKE_SOURCE_DIR}/../components/buffer/include/"
 	"${CMAKE_SOURCE_DIR}/../components/http_header_parser/include/"
+	"${CMAKE_SOURCE_DIR}/../components/http_server/include/"
 	"${CMAKE_SOURCE_DIR}/../components/player/include/"
 	"${CMAKE_SOURCE_DIR}/../components/"
 	"${CMAKE_SOURCE_DIR}/../main/include/"
@@ -36,8 +40,9 @@ add_executable(
 
 	"${CMAKE_SOURCE_DIR}/../components/buffer/buffer.c"
 	"${CMAKE_SOURCE_DIR}/../components/http_header_parser/http_header_parser.c"
+	"${CMAKE_SOURCE_DIR}/../components/http_server/http_server.c"
 	"${CMAKE_SOURCE_DIR}/../components/player/audio_output.c"
-	"${CMAKE_SOURCE_DIR}/../components/player/control.c"
+	"${CMAKE_SOURCE_DIR}/../components/player/control_http.c"
 	"${CMAKE_SOURCE_DIR}/../components/player/decoder.c"
 	"${CMAKE_SOURCE_DIR}/../components/player/events.c"
 	"${CMAKE_SOURCE_DIR}/../components/player/player.c"
@@ -54,6 +59,7 @@ target_link_libraries(
 	freertos
 	lwip
 	mad
+	mbedtls
 	pthread
 )
 set_property(TARGET ${PROJECT_NAME} PROPERTY C_STANDARD 11)

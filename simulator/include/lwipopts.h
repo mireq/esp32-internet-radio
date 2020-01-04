@@ -77,6 +77,7 @@
 #define TCPIP_MBOX_SIZE						5
 #define DEFAULT_TCP_RECVMBOX_SIZE           5
 #define DEFAULT_UDP_RECVMBOX_SIZE           5
+#define DEFAULT_ACCEPTMBOX_SIZE         6
 
 extern unsigned char debug_flags;
 #define LWIP_DBG_TYPES_ON debug_flags

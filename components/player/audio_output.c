@@ -64,6 +64,7 @@ esp_err_t audio_output_init(audio_output_t *output) {
 		.dma_buf_count = AUDIO_OUTPUT_BUFFER_COUNT,
 		.dma_buf_len = AUDIO_OUTPUT_BUFFER_SIZE,
 		.use_apll = false,
+		.tx_desc_auto_clear = true,
 	};
 	i2s_pin_config_t pin_config = {
 		.bck_io_num = GPIO_NUM_26,

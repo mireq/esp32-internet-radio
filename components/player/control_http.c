@@ -16,6 +16,25 @@
 
 static const char http_not_found[] = "HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n";
 static const char http_found[] = "HTTP/1.1 302 Found\r\nLocation: %s?device=%s\r\nConnection: close\r\n\r\n";
+static const char http_ws_start[] = "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ";
+static const char ws_magic_guid[] = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+
+
+static void ws_handshake(http_request_t *request) {
+	char key[64];
+	strcpy(key, request->sec_websocket_key);
+	strcpy(key + strlen(key), ws_magic_guid);
+
+	unsigned char sha1sum[20];
+	mbedtls_sha1((unsigned char *) key, strlen(key), sha1sum);
+	size_t olen;
+	mbedtls_base64_encode(key, sizeof(key), &olen, sha1sum, 20);
+	key[olen] = '\0';
+
+	write(request->client_socket, http_ws_start, sizeof(http_ws_start) - 1);
+	write(request->client_socket, key, strlen(key));
+	write(request->client_socket, "\r\n\r\n", sizeof("\r\n\r\n") - 1);
+}
 
 
 static void default_http_handler(http_request_t *request) {
@@ -31,10 +50,15 @@ static void home_http_handler(http_request_t *request) {
 }
 
 
+static void control_http_handler(http_request_t *request) {
+	ws_handshake(request);
+}
+
+
 static void on_http_request(http_request_t *request) {
 	if (strcmp(request->method, "GET") == 0) {
 		if (strcmp(request->query, "/") == 0 && strcmp(request->upgrade, "websocket") == 0) {
-			default_http_handler(request);
+			control_http_handler(request);
 			return;
 		}
 		if (strcmp(request->query, "/") == 0) {

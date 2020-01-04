@@ -1,6 +1,8 @@
+#include <stdbool.h>
 #include <stdio.h>
 #include <strings.h>
 
+#include "esp_err.h"
 #include "lwip/err.h"
 #include "lwip/sockets.h"
 #include "lwip/sys.h"
@@ -8,10 +10,27 @@
 #include "mbedtls/sha1.h"
 
 #include "control_http.h"
+#include "events.h"
 #include "http_server.h"
 
 
 #if CONFIG_HTTP_CONTROL
+
+
+#define MAX_WS_FRAME_SIZE 125
+
+typedef struct websocket_frame_t {
+	char data[MAX_WS_FRAME_SIZE];
+	uint8_t size;
+} websocket_frame_t;
+
+
+typedef struct command_message_t {
+	uint16_t command;
+	char data[MAX_WS_FRAME_SIZE - 2];
+	uint8_t size;
+} command_message_t;
+typedef command_message_t response_message_t;
 
 
 static const char http_not_found[] = "HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n";
@@ -50,8 +69,106 @@ static void home_http_handler(http_request_t *request) {
 }
 
 
+static esp_err_t receive_websocket_freame(http_request_t *request, websocket_frame_t *frame) {
+	uint16_t header;
+	char mask[] = {0, 0, 0, 0};
+	ssize_t received;
+	received = recv(request->client_socket, &header, sizeof(header), 0);
+	if (received == -1) {
+		return ESP_FAIL;
+	}
+	bool has_mask = false;
+	if (header & 0x80) {
+		has_mask = true;
+	}
+
+	frame->size = header & 0x7f;
+
+	// Message too long
+	if (frame->size > MAX_WS_FRAME_SIZE) {
+		return ESP_FAIL;
+	}
+
+	// Read optional mask
+	if (has_mask) {
+		received = recv(request->client_socket, &mask, sizeof(mask), 0);
+		if (received == -1) {
+			return ESP_FAIL;
+		}
+	}
+
+	// Read message
+	received = recv(request->client_socket, frame->data, frame->size, 0);
+	if (received == -1) {
+		return ESP_FAIL;
+	}
+
+	// Apply mask
+	for (size_t i = 0; i < frame->size; ++i) {
+		frame->data[i] ^= mask[i & 0x03];
+	}
+
+	return ESP_OK;
+}
+
+
+static esp_err_t send_websocket_freame(http_request_t *request, const websocket_frame_t *frame) {
+	char buf[MAX_WS_FRAME_SIZE + 2];
+	buf[0] = 0x80 | 0x02; // binary
+	buf[1] = frame->size;
+	memcpy(buf + 2, frame->data, frame->size);
+	ssize_t processed;
+	processed = write(request->client_socket, buf, frame->size + 2);
+	if (processed < 0) {
+		return ESP_FAIL;
+	}
+	return ESP_OK;
+}
+
+
+static esp_err_t send_websocket_response(http_request_t *request, const response_message_t *message) {
+	websocket_frame_t wsframe;
+	wsframe.size = message->size + sizeof(message->command);
+	memcpy(&wsframe.data, &message->command, sizeof(message->command));
+	memcpy(&wsframe.data + sizeof(message->command), message->data, message->size);
+	send_websocket_freame(request, &wsframe);
+}
+
+
+static esp_err_t handle_command_ping(http_request_t *request, command_message_t *message) {
+	const response_message_t response = {
+		.command = CONTROL_RESPONSE_PONG,
+		.size = 0,
+	};
+	send_websocket_response(request, &response);
+}
+
+
+static esp_err_t process_websocket_message(http_request_t *request, command_message_t *message) {
+	switch (message->command) {
+		case CONTROL_COMMAND_PING:
+			return handle_command_ping(request, message);
+		default:
+			return ESP_FAIL;
+	}
+}
+
+
 static void control_http_handler(http_request_t *request) {
 	ws_handshake(request);
+	while (1) {
+		websocket_frame_t websocket_frame;
+		if (receive_websocket_freame(request, &websocket_frame) != ESP_OK) {
+			break;
+		}
+		command_message_t msg;
+		memcpy(&msg.command, websocket_frame.data, sizeof(msg.command));
+		memcpy(&msg.data, websocket_frame.data + sizeof(msg.command), sizeof(msg.data));
+		msg.size = websocket_frame.size - sizeof(msg.command);
+		if (process_websocket_message(request, &msg) != ESP_OK) {
+			break;
+		}
+	}
 }
 
 

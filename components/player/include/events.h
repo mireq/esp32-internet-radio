@@ -23,6 +23,7 @@ typedef enum {
 
 
 typedef enum {
+	CONTROL_COMMAND_PING,
 	CONTROL_COMMAND_STOP,
 	CONTROL_COMMAND_START,
 	CONTROL_COMMAND_QUIT,
@@ -31,6 +32,11 @@ typedef enum {
 	CONTROL_COMMAND_VOLUME_SET,
 	CONTROL_COMMAND_STREAM_URL,
 } control_command_t;
+
+
+typedef enum {
+	CONTROL_RESPONSE_PONG,
+} control_response_t;
 
 
 extern esp_event_loop_handle_t player_event_loop;

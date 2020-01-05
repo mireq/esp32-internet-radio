@@ -14,6 +14,7 @@ void app_main(void)
 #if CONFIG_HTTP_CONTROL
 	init_http_control();
 #endif
+	init_framebuffer();
 	for (;;) {
 		vTaskDelay(10000);
 		printf("tick\n");

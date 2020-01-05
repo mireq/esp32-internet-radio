@@ -1,3 +1,9 @@
+#ifdef SIMULATOR
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#endif
+
 #include "freertos/FreeRTOS.h"
 
 #include "esp_log.h"
@@ -160,4 +166,31 @@ void init_events(void) {
 	};
 	ESP_ERROR_CHECK(esp_event_loop_create(&loop_args, &player_event_loop));
 	init_player_events();
+}
+
+
+typedef uint32_t framebuffer_t[256][1008];
+framebuffer_t *framebuffer;
+
+
+void init_framebuffer(void) {
+#ifdef SIMULATOR
+	int fd = shm_open("/simulator_fb", O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
+	if (fd == -1) {
+		ESP_LOGE(TAG, "Framebuffer not created");
+	}
+	if (ftruncate(fd, sizeof(framebuffer_t)) == -1) {
+		ESP_LOGE(TAG, "Framebuffer set size failed");
+	}
+	framebuffer = mmap(NULL, sizeof(framebuffer_t), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+	if (framebuffer == MAP_FAILED || framebuffer == NULL) {
+		ESP_LOGE(TAG, "Framebuffer not mapped");
+	}
+	for (size_t y = 0; y < sizeof(*framebuffer) / sizeof((*framebuffer)[0]); ++y) {
+		for (size_t x = 0; x < sizeof((*framebuffer)[0]) / 4; ++x) {
+			(*framebuffer)[y][x] = 0xff000000;
+		}
+	}
+#else
+#endif
 }

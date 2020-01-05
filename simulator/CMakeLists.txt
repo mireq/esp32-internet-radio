@@ -61,5 +61,6 @@ target_link_libraries(
 	mad
 	mbedtls
 	pthread
+	rt
 )
 set_property(TARGET ${PROJECT_NAME} PROPERTY C_STANDARD 11)

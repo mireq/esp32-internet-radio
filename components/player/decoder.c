@@ -99,39 +99,6 @@ static esp_err_t decoder_mpeg_feed(decoder_t *decoder, char *buf, ssize_t size) 
 		}
 		else {
 			taskYIELD();
-
-			double maximum = log2(MAD_F_ONE);
-			double minimum = log2(MAD_F_ONE / 100000);
-
-			for (size_t sb = 0; sb < 28; ++sb) {
-				for (size_t s = 0; s < 36; ++s) {
-					mad_fixed_t value = abs(mpeg->mad_frame.sbsample[0][s][sb]);
-					if (value != 0) {
-						double pixel_size = (log2(value) - minimum) / (maximum - minimum);
-						if (pixel_size > 0) {
-							value = pixel_size * 255;
-						}
-						else {
-							value = 0;
-						}
-					}
-					int col = sb * 36 + s;
-					for (size_t i = 0; i < 256; ++i) {
-						if (i >= value) {
-							if (col % 36 == 0) {
-								(*framebuffer)[255-i][col] = 0xff444444;
-							}
-							else {
-								(*framebuffer)[255-i][col] = 0xff000000;
-							}
-						}
-						else {
-							(*framebuffer)[255-i][col] = 0xffffffff;
-						}
-					}
-				}
-			}
-
 			mad_synth_frame(&mpeg->mad_synth, &mpeg->mad_frame);
 			taskYIELD();
 			decoder_mpeg_prepare_audio(decoder);

@@ -91,19 +91,64 @@ esp_err_t audio_output_set_sample_rate(audio_output_t *output, int rate) {
 
 	return ESP_OK;
 #else
-	int factor = (256 % AUDIO_BITS_PER_SAMPLE)? 384 : 256;
-	int div_b, bck = 0;
-	double denom = (double)1 / 64;
-	double clkmdiv = (double)I2S_BASE_CLK / (rate * factor);
-	div_b = (clkmdiv - (int)clkmdiv) / denom;
-	bck = factor/(I2S_BITS_PER_SAMPLE_32BIT * 2);
+	int sample_size = AUDIO_BITS_PER_SAMPLE * 2;
+	int i2s_frequency = APB_CLK_FREQ / 2;
 
+	// Clock frequency is 1 / (N + (b / a))
+	// clock divisor is required denominator value
+	double requested_divisor = (double)(i2s_frequency) / (rate * sample_size);
+	if (requested_divisor >= 254 || requested_divisor < 2) {
+		ESP_LOGE(TAG, "Unsupported sample rate: %d", rate);
+		return;
+	}
+
+	// Best solution
+	double min_error = 1.0;
+	int best_n = (int)requested_divisor;
+	int best_b = 0;
+	int best_a = 1;
+
+	// Bruteforce search solution
+	for (int a = 1; a < 64; ++a) {
+		int b = (requested_divisor - (double)best_n) * (double)a;
+		if (b > 63) {
+			continue;
+		}
+
+		double divisor = (double)best_n + (double)b / (double)a;
+		double error = divisor > requested_divisor ? divisor - requested_divisor : requested_divisor - divisor;
+		if (error < min_error) {
+			min_error = error;
+			best_a = a;
+			best_b = b;
+		}
+
+		b++;
+		if (b > 63) {
+			continue;
+		}
+		divisor = (double)best_n + (double)b / (double)a;
+		error = divisor > requested_divisor ? divisor - requested_divisor : requested_divisor - divisor;
+		if (error < min_error) {
+			min_error = error;
+			best_a = a;
+			best_b = b;
+		}
+	}
+
+	// Compare requested rate to final rate
+	double final_rate = (double)(i2s_frequency) / (double)sample_size / ((double)best_n + (double)best_b / (double)best_a);
+	ESP_LOGI(TAG, "Requested samplerate change to: %d, final samplerate %f, N: %d, b: %d, a: %d", rate, final_rate, best_n, best_b, best_a);
+
+	// Change clock
 	I2S[output->port]->clkm_conf.clkm_div_a = 63;
-	I2S[output->port]->clkm_conf.clkm_div_b = div_b;
-	I2S[output->port]->clkm_conf.clkm_div_num = (int)clkmdiv;
-	I2S[output->port]->sample_rate_conf.tx_bck_div_num = bck;
-	I2S[output->port]->sample_rate_conf.rx_bck_div_num = bck;
+	I2S[output->port]->clkm_conf.clkm_div_b = best_b;
+	I2S[output->port]->clkm_conf.clkm_div_a = best_a;
+	I2S[output->port]->clkm_conf.clkm_div_num = best_n;
+
+	// Only for information
 	output->sample_rate = rate;
+
 	return ESP_OK;
 #endif
 }

@@ -47,7 +47,7 @@ static void ws_handshake(http_request_t *request) {
 	unsigned char sha1sum[20];
 	mbedtls_sha1((unsigned char *) key, strlen(key), sha1sum);
 	size_t olen;
-	mbedtls_base64_encode(key, sizeof(key), &olen, sha1sum, 20);
+	mbedtls_base64_encode((unsigned char *)key, sizeof(key), &olen, sha1sum, 20);
 	key[olen] = '\0';
 
 	write(request->client_socket, http_ws_start, sizeof(http_ws_start) - 1);
@@ -132,6 +132,7 @@ static esp_err_t send_websocket_response(http_request_t *request, const response
 	memcpy(&wsframe.data, &message->command, sizeof(message->command));
 	memcpy(&wsframe.data + sizeof(message->command), message->data, message->size);
 	send_websocket_freame(request, &wsframe);
+	return ESP_OK;
 }
 
 
@@ -141,6 +142,7 @@ static esp_err_t handle_command_ping(http_request_t *request, command_message_t 
 		.size = 0,
 	};
 	send_websocket_response(request, &response);
+	return ESP_OK;
 }
 
 

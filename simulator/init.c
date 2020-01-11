@@ -1,7 +1,7 @@
-#include "events.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "init.h"
+#include "interface.h"
 
 
 void init_nvs(void) {
@@ -20,5 +20,5 @@ static void fake_network_init(void *data) {
 
 
 void init_network(void) {
-	xTaskCreate(&fake_network_init, "fake_network_init", 16, NULL, 5, NULL);
+	xTaskCreate(&fake_network_init, "fake_network_init", configMINIMAL_STACK_SIZE, NULL, 1, NULL);
 }

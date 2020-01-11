@@ -29,6 +29,7 @@ typedef enum source_error_t {
 
 
 typedef enum source_type_t {
+	SOURCE_TYPE_UNKNOWN,
 	SOURCE_TYPE_HTTP,
 } source_type_t;
 

@@ -99,7 +99,7 @@ esp_err_t audio_output_set_sample_rate(audio_output_t *output, int rate) {
 	double requested_divisor = (double)(i2s_frequency) / (rate * sample_size);
 	if (requested_divisor >= 254 || requested_divisor < 2) {
 		ESP_LOGE(TAG, "Unsupported sample rate: %d", rate);
-		return;
+		return ESP_FAIL;
 	}
 
 	// Best solution

@@ -15,9 +15,10 @@
 #include "nvs_flash.h"
 #endif
 
-#include "events.h"
 #include "init.h"
+#include "interface.h"
 #include "player.h"
+#include "task_debug.h"
 
 
 static const char *TAG = "init";
@@ -155,17 +156,49 @@ void init_network(void) {
 #endif
 
 
-void init_events(void) {
+typedef struct task_init_instruction_t {
+	TaskFunction_t task;
+	const char * const task_name;
+	uint16_t stack_depth;
+	UBaseType_t priority;
+} task_init_instruction_t;
+
+
+static const task_init_instruction_t task_init_instructions[] = {
+#if CONFIG_DEBUG_PRINT_TASK_STATISTICS == 1 && 0
+	{
+		// Print task statistics
+		.task = task_stats_task,
+		.task_name = "task_stats",
+		.stack_depth = configMINIMAL_STACK_SIZE + (16 * sizeof(TaskStatus_t) / 4) + 1024,
+		.priority = tskIDLE_PRIORITY + 1,
+	},
+#endif
+	{
+		.task = NULL
+	}
+};
+
+
+void init_event_loop(void) {
 	ESP_ERROR_CHECK(esp_event_loop_create_default());
 	esp_event_loop_args_t loop_args = {
-		.queue_size = 4,
+		.queue_size = 1,
 		.task_name = "player_event",
-		.task_priority = 5,
-		.task_stack_size = 8192,
+		.task_priority = 1,
+		.task_stack_size = configMINIMAL_STACK_SIZE + 4096,
 		.task_core_id = 0,
 	};
 	ESP_ERROR_CHECK(esp_event_loop_create(&loop_args, &player_event_loop));
-	init_player_events();
+}
+
+
+void init_tasks(void) {
+	const task_init_instruction_t *instr = &task_init_instructions[0];
+	while (instr->task != NULL) {
+		xTaskCreatePinnedToCore(instr->task, instr->task_name, instr->stack_depth, NULL, instr->priority, NULL, 0);
+		instr++;
+	}
 }
 
 

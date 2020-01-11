@@ -10,7 +10,7 @@
 #include "mbedtls/sha1.h"
 
 #include "control_http.h"
-#include "events.h"
+#include "interface.h"
 #include "http_server.h"
 
 

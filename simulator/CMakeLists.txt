@@ -5,6 +5,7 @@ project(simulator)
 add_subdirectory("freertos")
 add_subdirectory("lwip")
 add_subdirectory("mbedtls")
+add_subdirectory("mad")
 
 include_directories(
 	"${CMAKE_SOURCE_DIR}/include/"
@@ -44,11 +45,13 @@ add_executable(
 	"${CMAKE_SOURCE_DIR}/../components/player/audio_output.c"
 	"${CMAKE_SOURCE_DIR}/../components/player/control_http.c"
 	"${CMAKE_SOURCE_DIR}/../components/player/decoder.c"
-	"${CMAKE_SOURCE_DIR}/../components/player/events.c"
+	"${CMAKE_SOURCE_DIR}/../components/player/interface.c"
 	"${CMAKE_SOURCE_DIR}/../components/player/player.c"
+	"${CMAKE_SOURCE_DIR}/../components/player/playlist.c"
 	"${CMAKE_SOURCE_DIR}/../components/player/source.c"
 	"${CMAKE_SOURCE_DIR}/../main/init.c"
 	"${CMAKE_SOURCE_DIR}/../main/main.c"
+	"${CMAKE_SOURCE_DIR}/../main/task_debug.c"
 )
 
 add_definitions(-D_GNU_SOURCE -DSIMULATOR -g3 -ggdb)

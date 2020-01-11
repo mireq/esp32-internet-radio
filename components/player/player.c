@@ -10,8 +10,9 @@
 #include "audio_output.h"
 #include "buffer/buffer.h"
 #include "decoder.h"
-#include "events.h"
+#include "interface.h"
 #include "player.h"
+#include "playlist.h"
 #include "source.h"
 #include "terminal.h"
 
@@ -19,6 +20,7 @@
 static const char *TAG = "player";
 
 
+/*
 typedef enum playback_command_t {
 	NO_COMMAND,
 	STOP_COMMAND,
@@ -173,7 +175,8 @@ static void decoder_loop(void *parameters) {
 void start_playback(void) {
 	stop_playback();
 	//strcpy(uri, "http://ice1.somafm.com/illstreet-128-mp3");
-	strcpy(uri, "http://icecast.stv.livebox.sk:80/fm_128.mp3");
+	//strcpy(uri, "http://icecast.stv.livebox.sk:80/fm_128.mp3");
+	strcpy(uri, "http://mireq.linuxos.sk/test.mp3");
 	xSemaphoreGive(source_changed_semaphore);
 }
 
@@ -236,4 +239,60 @@ void init_player(void) {
 
 void init_audio_output(void) {
 	audio_output_init(&audio_output);
+}
+*/
+
+/* Variables */
+
+static playlist_t playlist = {
+	.callback = NULL,
+};
+static source_t source = {
+	.type = SOURCE_TYPE_UNKNOWN,
+};
+
+/* Events */
+
+static void on_metadata(source_t *source, const char *key, const char *value) {
+	ESP_LOGI(TAG, "Metadata: %s = %s", key, value);
+}
+
+
+static void on_network_event(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data) {
+	switch (event_id) {
+		case NETWORK_EVENT_DISCONNECT:
+			playlist_cancel(&playlist);
+			break;
+		case NETWORK_EVENT_CONNECT:
+			playlist_open_current(&playlist);
+			break;
+	}
+}
+
+
+static void on_playback_event(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data) {
+	switch (event_id) {
+		case PLAYBACK_EVENT_PLAYLIST_ITEM_CHANGE:
+			source_destroy(&source);
+			const playlist_item_t *playlist_item = (const playlist_item_t *)event_data;
+			if (playlist_item->loaded && strlen(playlist_item->uri) > 0) {
+				source.metadata_callback = on_metadata;
+				source_init(&source, playlist_item->uri);
+			}
+			break;
+		default:
+			break;
+	}
+}
+
+
+static void on_playlist_item_changed(playlist_t *playlist, playlist_item_t *item) {
+	esp_event_post_to(player_event_loop, PLAYBACK_EVENT, PLAYBACK_EVENT_PLAYLIST_ITEM_CHANGE, item, sizeof(playlist_item_t), portMAX_DELAY);
+}
+
+
+void init_player(void) {
+	playlist_init(&playlist, on_playlist_item_changed, NULL);
+	esp_event_handler_register_with(player_event_loop, NETWORK_EVENT, ESP_EVENT_ANY_ID, on_network_event, NULL);
+	esp_event_handler_register_with(player_event_loop, PLAYBACK_EVENT, ESP_EVENT_ANY_ID, on_playback_event, NULL);
 }

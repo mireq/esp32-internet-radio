@@ -86,4 +86,16 @@ config BUILD_SIMULATOR
 	help
 		Build simulator using FreeRTOS posix simulator.
 
+
+menu "Debug"
+
+config DEBUG_PRINT_TASK_STATISTICS
+	bool "Print task statistics"
+	default n
+	depends on FREERTOS_USE_TRACE_FACILITY
+	help
+		Print task name, priority, run time and free stack size every second.
+
+endmenu
+
 endmenu

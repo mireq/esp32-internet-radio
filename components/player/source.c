@@ -99,20 +99,27 @@ source_error_t source_init(source_t *source, const char *uri) {
 	return SOURCE_URI_ERROR;
 }
 
+
 void source_destroy(source_t *source) {
 	switch (source->type) {
+		case SOURCE_TYPE_UNKNOWN:
+			break;
 		case SOURCE_TYPE_HTTP:
 			source_http_destroy(source);
 			break;
 	}
 }
 
+
 ssize_t source_read(source_t *source, char *buf, ssize_t size) {
 	switch (source->type) {
+		case SOURCE_TYPE_UNKNOWN:
+			return -1;
 		case SOURCE_TYPE_HTTP:
 			return source_http_read(source, buf, size);
+		default:
+			return -1;
 	}
-	return -1;
 }
 
 

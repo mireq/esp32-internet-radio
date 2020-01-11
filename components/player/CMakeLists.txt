@@ -2,8 +2,9 @@ set(COMPONENT_SRCS
 	"audio_output.c"
 	"control_http.c"
 	"decoder.c"
-	"events.c"
+	"interface.c"
 	"player.c"
+	"playlist.c"
 	"source.c"
 )
 set(COMPONENT_ADD_INCLUDEDIRS "include")

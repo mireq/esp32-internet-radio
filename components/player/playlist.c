@@ -21,7 +21,7 @@ static void set_playlist_item(playlist_item_t *item, const char *path, const cha
 	strncpy(item->previous, previous, sizeof(item->previous));
 	strncpy(item->up, up, sizeof(item->up));
 	strncpy(item->name, name, sizeof(item->name));
-	strncpy(item->uri, name, sizeof(item->uri));
+	strncpy(item->uri, uri, sizeof(item->uri));
 	item->loaded = loaded;
 }
 

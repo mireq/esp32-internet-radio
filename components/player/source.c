@@ -86,17 +86,21 @@ static ssize_t source_http_read(source_t *source, char *buf, ssize_t size);
 
 
 source_error_t source_init(source_t *source, const char *uri) {
+	source_error_t status = SOURCE_NO_ERROR;
 	bzero(source->content_type, sizeof(source->content_type));
 	source->metadata_callback = NULL;
 	uri_t uri_parsed;
 	uri_parse(&uri_parsed, uri);
 	if (!uri_parsed.protocol) {
-		return SOURCE_URI_ERROR;
+		status = SOURCE_URI_ERROR;
 	}
-	if (strcmp(uri_parsed.protocol, "http") == 0) {
-		return source_http_init(source, &uri_parsed);
+	else if (strcmp(uri_parsed.protocol, "http") == 0) {
+		status = source_http_init(source, &uri_parsed);
 	}
-	return SOURCE_URI_ERROR;
+	else {
+		status = SOURCE_URI_ERROR;
+	}
+	return status;
 }
 
 
@@ -161,13 +165,16 @@ static void on_http_header_parser_fragment(http_header_parser_t *parser) {
 
 
 static source_error_t source_http_init(source_t *source, const uri_t *uri) {
+	xSemaphoreTake(source->semaphore, portMAX_DELAY);
 	ESP_LOGI(TAG, "opening source http://%s:%d%s", uri->host, uri->port, uri->path);
 	source_data_http_t *http = &source->data.http;
+	source->type = SOURCE_TYPE_HTTP;
 	http->icy_meta_interval = 0;
 	http->icy_meta_interval_distance = 0;
 	http->icy_meta_size = 0;
 	http->icy_meta_readed = 0;
 	http->sock = -1;
+
 	const struct addrinfo hints = {
 		.ai_family = AF_INET,
 		.ai_socktype = SOCK_STREAM,
@@ -182,6 +189,7 @@ static source_error_t source_http_init(source_t *source, const uri_t *uri) {
 		if (res) {
 			freeaddrinfo(res);
 		}
+		xSemaphoreGive(source->semaphore);
 		return SOURCE_READING_ERROR;
 	}
 
@@ -189,6 +197,7 @@ static source_error_t source_http_init(source_t *source, const uri_t *uri) {
 	if (sock < 0) {
 		ESP_LOGE(TAG, "failed to allocate socket.");
 		freeaddrinfo(res);
+		xSemaphoreGive(source->semaphore);
 		return SOURCE_READING_ERROR;
 	}
 
@@ -204,9 +213,11 @@ static source_error_t source_http_init(source_t *source, const uri_t *uri) {
 		ESP_LOGE(TAG, "failed to connnect to socket. err=%d", errno);
 		close(sock);
 		freeaddrinfo(res);
+		xSemaphoreGive(source->semaphore);
 		return SOURCE_READING_ERROR;
 	}
 	freeaddrinfo(res);
+	xSemaphoreGive(source->semaphore);
 
 	const char template[] = "GET %s HTTP/1.0\r\nHost: %s\r\nUser-Agent: ESP32\r\nAccept: */*\r\nIcy-MetaData: 1\r\n\r\n";
 	char request[MAX_URI_SIZE + sizeof(template) + 1];
@@ -259,12 +270,14 @@ static source_error_t source_http_init(source_t *source, const uri_t *uri) {
 }
 
 static void source_http_destroy(source_t *source) {
+	xSemaphoreTake(source->semaphore, portMAX_DELAY);
 	source_data_http_t *http = &source->data.http;
 	if (http->sock >= 0) {
 		close(http->sock);
 		http->sock = -1;
 		ESP_LOGI(TAG, "closed http stream");
 	}
+	xSemaphoreGive(source->semaphore);
 }
 
 static void parse_icy_metadata(source_t *source, char *buf) {

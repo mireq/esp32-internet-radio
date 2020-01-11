@@ -244,12 +244,11 @@ void init_audio_output(void) {
 
 /* Variables */
 
-static playlist_t playlist = {
-	.callback = NULL,
-};
-static source_t source = {
-	.type = SOURCE_TYPE_UNKNOWN,
-};
+static playlist_t playlist = { .callback = NULL };
+static source_t source = { .type = SOURCE_TYPE_UNKNOWN, .semaphore = NULL };
+static decoder_t decoder;
+static SemaphoreHandle_t has_source_semaphore = NULL;
+
 
 /* Events */
 
@@ -276,8 +275,7 @@ static void on_playback_event(void* arg, esp_event_base_t event_base, int32_t ev
 			source_destroy(&source);
 			const playlist_item_t *playlist_item = (const playlist_item_t *)event_data;
 			if (playlist_item->loaded && strlen(playlist_item->uri) > 0) {
-				source.metadata_callback = on_metadata;
-				source_init(&source, playlist_item->uri);
+				xSemaphoreGive(has_source_semaphore);
 			}
 			break;
 		default:
@@ -290,8 +288,55 @@ static void on_playlist_item_changed(playlist_t *playlist, playlist_item_t *item
 	esp_event_post_to(player_event_loop, PLAYBACK_EVENT, PLAYBACK_EVENT_PLAYLIST_ITEM_CHANGE, item, sizeof(playlist_item_t), portMAX_DELAY);
 }
 
+/* Tasks */
+
+
+void player_task(void *arg) {
+	for (;;) {
+		// Wait until has source
+		xSemaphoreTake(has_source_semaphore, portMAX_DELAY);
+		// Destroy current source immediately
+		source_destroy(&source);
+		// Do not play instant
+		vTaskDelay(250 / portTICK_PERIOD_MS);
+
+		{
+			// Get playlist item
+			playlist_item_t playlist_item;
+			playlist_get_item(&playlist, &playlist_item);
+			if (!playlist_item.loaded) {
+				continue;
+			}
+
+			// Initialize source
+			source_error_t status = source_init(&source, playlist_item.uri);
+			if (status != SOURCE_NO_ERROR) {
+				source_destroy(&source);
+				esp_event_post_to(player_event_loop, PLAYBACK_EVENT, PLAYBACK_EVENT_ERROR, NULL, 0, portMAX_DELAY);
+				continue;
+			}
+		}
+
+		// Cleanup
+		source_destroy(&source);
+	}
+	vTaskDelete(NULL);
+}
+
 
 void init_player(void) {
+	source.metadata_callback = on_metadata;
+	has_source_semaphore = xSemaphoreCreateBinary();
+	if (has_source_semaphore == NULL) {
+		ESP_LOGE(TAG, "Semaphore has_source_semaphore not crated.");
+		abort();
+	}
+	source.semaphore = xSemaphoreCreateBinary();
+	if (source.semaphore == NULL) {
+		ESP_LOGE(TAG, "Semaphore source.semaphore not crated.");
+		abort();
+	}
+	xSemaphoreGive(source.semaphore);
 	playlist_init(&playlist, on_playlist_item_changed, NULL);
 	esp_event_handler_register_with(player_event_loop, NETWORK_EVENT, ESP_EVENT_ANY_ID, on_network_event, NULL);
 	esp_event_handler_register_with(player_event_loop, PLAYBACK_EVENT, ESP_EVENT_ANY_ID, on_playback_event, NULL);

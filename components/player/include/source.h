@@ -2,6 +2,9 @@
 
 #include <stdlib.h>
 
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
+
 #include "http_header_parser/http_header_parser.h"
 
 #define SOURCE_READ_AGAIN -2
@@ -59,7 +62,9 @@ typedef struct source_data_http_t {
 typedef struct source_t {
 	source_type_t type;
 	source_metadata_callback_t metadata_callback;
+	uri_t uri;
 	char content_type[HTTP_HEADER_VALUE_BUFFER_SIZE];
+	SemaphoreHandle_t semaphore;
 	union {
 		source_data_http_t http;
 	} data;

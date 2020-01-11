@@ -18,6 +18,7 @@
 #include "init.h"
 #include "interface.h"
 #include "player.h"
+#include "playlist.h"
 #include "task_debug.h"
 
 
@@ -174,6 +175,13 @@ static const task_init_instruction_t task_init_instructions[] = {
 		.priority = tskIDLE_PRIORITY + 1,
 	},
 #endif
+	{
+		// Player loop
+		.task = player_task,
+		.task_name = "player",
+		.stack_depth = configMINIMAL_STACK_SIZE + (sizeof(playlist_item_t) / 4) + 1024,
+		.priority = tskIDLE_PRIORITY + 1,
+	},
 	{
 		.task = NULL
 	}

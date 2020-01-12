@@ -111,6 +111,9 @@ function Connection(socket_url) {
 		if (self.status == 'connected' && conn !== undefined) {
 			conn.close();
 			conn = undefined;
+			self.status = 'disconnected';
+			signals.statusChanged.send(self.status);
+			signals.close.send();
 		}
 	}
 
@@ -123,6 +126,19 @@ function Connection(socket_url) {
 function Api(socket_url) {
 	var self = this;
 
+	var pingTimer;
+	var pongReceived = false;
+
+	function checkPong() {
+		if (pongReceived) {
+			pongReceived = false;
+			pingTimer = setTimeout(checkPong, 1000);
+		}
+		else {
+			self.connection.close();
+		}
+	}
+
 	self.connection = new Connection(socket_url);
 
 	self.connection.signals.close.connect(function() {
@@ -130,9 +146,13 @@ function Api(socket_url) {
 	});
 
 	self.connection.signals.statusChanged.connect(function(status) {
-		console.log(status);
+		if (status === 'connected' && pingTimer === undefined) {
+			pingTimer = setTimeout(checkPong, 1000);
+		}
+		if (status !== 'connected' && pingTimer !== undefined) {
+			clearTimeout(pingTimer);
+		}
 	});
-
 
 	self.connection.connect();
 }

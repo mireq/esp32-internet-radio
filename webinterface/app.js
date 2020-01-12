@@ -146,6 +146,7 @@ function Api(socket_url) {
 	});
 
 	self.connection.signals.statusChanged.connect(function(status) {
+		console.log(status);
 		if (status === 'connected' && pingTimer === undefined) {
 			pingTimer = setTimeout(checkPong, 1000);
 		}

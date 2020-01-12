@@ -150,7 +150,6 @@ static esp_err_t handle_command_ping(http_request_t *request, command_message_t 
 		.size = 0,
 	};
 	send_websocket_response(request, &response);
-	printf("pong\n");
 	return ESP_OK;
 }
 

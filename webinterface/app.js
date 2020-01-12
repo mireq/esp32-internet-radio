@@ -1,14 +1,16 @@
 (function() {
 
 
+var COMMAND_PING = 0;
+
+var RESPONSE_PONG = 0;
+
+
 function Signal() {
 	var self = this;
 	this.listeners = [];
 
 	this.connect = function(callback) {
-		if (callback === undefined) {
-			wtf();
-		}
 		self.listeners.push(callback);
 	};
 
@@ -103,24 +105,15 @@ function Api(socket_url) {
 	var pongReceived = false;
 
 	function checkPong() {
-		/*
-		var commandLength = 2;
-		var buf = new ArrayBuffer(commandLength);
-		var bufView = new Uint16Array(buf);
-		bufView[0] = 0;
-		self.connection.send(buf);
-		*/
-		self.sendCommand(0);
-
 		if (pongReceived) {
 			pongReceived = false;
+			self.sendCommand(COMMAND_PING);
 			pingTimer = setTimeout(checkPong, 1000);
 		}
 		else {
-			pingTimer = setTimeout(checkPong, 1000);
-			//self.connection.close();
-			//pingTimer = undefined;
-			//console.log("closing connection");
+			self.connection.close();
+			pingTimer = undefined;
+			console.log("closing connection");
 		}
 	}
 
@@ -138,6 +131,16 @@ function Api(socket_url) {
 		self.connection.send(buf);
 	};
 
+	this.receiveCommand = function(commandNr, data) {
+		switch (commandNr) {
+			case RESPONSE_PONG:
+				pongReceived = true;
+				break;
+			default:
+				break;
+		}
+	};
+
 	this.connection.signals.close.connect(function() {
 		self.connection.connect();
 	});
@@ -145,6 +148,7 @@ function Api(socket_url) {
 	this.connection.signals.statusChanged.connect(function(status) {
 		console.log(status);
 		if (status === 'connected' && pingTimer === undefined) {
+			self.sendCommand(COMMAND_PING);
 			pingTimer = setTimeout(checkPong, 1000);
 		}
 		if (status !== 'connected' && pingTimer !== undefined) {
@@ -153,7 +157,12 @@ function Api(socket_url) {
 	});
 
 	this.connection.signals.messageReceived.connect(function(event) {
-		console.log(event);
+		event.data.arrayBuffer().then(function(buf) {
+			var commandView = new Uint16Array(buf, 0, 1);
+			var commandNr = commandView[0];
+			var data = buf.slice(2);
+			self.receiveCommand(commandNr, data);
+		});
 	});
 
 	this.connection.connect();

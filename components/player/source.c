@@ -136,6 +136,23 @@ typedef struct http_header_t {
 } http_header_t;
 
 
+ssize_t recv_noblock(int socket, char *buf, size_t size, SemaphoreHandle_t wait_data_semaphore) {
+	ssize_t received = -1;
+	while (received == -1) {
+		received = recv(socket, buf, size, MSG_DONTWAIT);
+		if (received == -1) {
+			if (errno == EAGAIN) {
+				xSemaphoreTake(wait_data_semaphore, 1);
+			}
+			else {
+				break;
+			}
+		}
+	}
+	return received;
+}
+
+
 static void on_http_header_parser_fragment(http_header_parser_t *parser) {
 	http_header_t *header = (http_header_t *)parser->handle;
 
@@ -205,9 +222,7 @@ static source_error_t source_http_init(source_t *source, const uri_t *uri) {
 	err = -1;
 	while (err != 0 && retries > 0) {
 		err = connect(sock, res->ai_addr, res->ai_addrlen);
-		if (errno != EINTR) {
-			retries -= 1;
-		}
+		retries -= 1;
 	}
 	if (err != 0) {
 		ESP_LOGE(TAG, "failed to connnect to socket. err=%d", errno);
@@ -217,7 +232,6 @@ static source_error_t source_http_init(source_t *source, const uri_t *uri) {
 		return SOURCE_READING_ERROR;
 	}
 	freeaddrinfo(res);
-	xSemaphoreGive(source->semaphore);
 
 	const char template[] = "GET %s HTTP/1.0\r\nHost: %s\r\nUser-Agent: ESP32\r\nAccept: */*\r\nIcy-MetaData: 1\r\n\r\n";
 	char request[MAX_URI_SIZE + sizeof(template) + 1];
@@ -227,6 +241,7 @@ static source_error_t source_http_init(source_t *source, const uri_t *uri) {
 	if (write(sock, request, strlen(request)) < 0) {
 		ESP_LOGE(TAG, "socket write failed");
 		close(sock);
+		xSemaphoreGive(source->semaphore);
 		return SOURCE_READING_ERROR;
 	}
 
@@ -240,13 +255,7 @@ static source_error_t source_http_init(source_t *source, const uri_t *uri) {
 
 	char c;
 	for (size_t i = 0; i < MAX_HTTP_HEADER_SIZE; ++i) {
-		ssize_t received = -1;
-		while (received == -1) {
-			received = recv(sock, &c, sizeof(c), 0);
-			if (received == -1 && errno != EINTR) {
-				break;
-			}
-		}
+		ssize_t received = recv_noblock(sock, &c, sizeof(c), source->wait_data_semaphore);
 		http_header_parser_feed(&parser, c);
 		if (parser.header_finished || parser.header_error) {
 			break;
@@ -256,6 +265,7 @@ static source_error_t source_http_init(source_t *source, const uri_t *uri) {
 	if (http_header.status != 200) {
 		ESP_LOGE(TAG, "wrong http status, excepted 200, got %d", http_header.status);
 		close(sock);
+		xSemaphoreGive(source->semaphore);
 		return SOURCE_READING_ERROR;
 	}
 
@@ -265,6 +275,8 @@ static source_error_t source_http_init(source_t *source, const uri_t *uri) {
 	strcpy(source->content_type, http_header.content_type);
 
 	ESP_LOGI(TAG, "opened http stream");
+
+	xSemaphoreGive(source->semaphore);
 
 	return SOURCE_NO_ERROR;
 }
@@ -277,7 +289,9 @@ static void source_http_destroy(source_t *source) {
 		http->sock = -1;
 		ESP_LOGI(TAG, "closed http stream");
 	}
+	source->type = SOURCE_TYPE_UNKNOWN;
 	xSemaphoreGive(source->semaphore);
+	xSemaphoreGive(source->wait_data_semaphore);
 }
 
 static void parse_icy_metadata(source_t *source, char *buf) {
@@ -319,17 +333,7 @@ static ssize_t source_http_read_icy_metadata(source_t *source) {
 		buf = &http->icy_meta_buffer[http->icy_meta_readed];
 		requested = http->icy_meta_size - http->icy_meta_readed;
 	}
-	while (received == -1) {
-		received = recv(source->data.http.sock, buf, requested, 0);
-		if (received == -1 && errno != EINTR) {
-			if (errno == EAGAIN) {
-				received = 0;
-			}
-			else if (errno != EINTR) {
-				break;
-			}
-		}
-	}
+	received = recv_noblock(source->data.http.sock, buf, requested, source->wait_data_semaphore);
 	if (received > 0) {
 		if (http->icy_meta_size == -1) {
 			http->icy_meta_size = size * 16;
@@ -363,17 +367,7 @@ static ssize_t source_http_read(source_t *source, char *buf, ssize_t size) {
 			return source_http_read_icy_metadata(source);
 		}
 	}
-	while (received == -1) {
-		received = recv(source->data.http.sock, buf, requested, MSG_DONTWAIT);
-		if (received == -1 && errno != EINTR) {
-			if (errno == EAGAIN) {
-				received = 0;
-			}
-			else if (errno != EINTR) {
-				break;
-			}
-		}
-	}
+	received = recv_noblock(source->data.http.sock, buf, requested, source->wait_data_semaphore);
 	if (received > 0) {
 		http->icy_meta_interval_distance -= received;
 	}

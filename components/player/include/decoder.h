@@ -16,19 +16,11 @@
 
 struct decoder_t;
 
-typedef enum decoder_event_type_t {
-	DECODER_PCM,
-	DECODER_STATUS,
-} decoder_event_type_t;
-
 
 typedef struct decoder_pcm_data_t {
 	audio_sample_t *data;
 	size_t length;
 } decoder_pcm_data_t;
-
-
-typedef void (*decoder_callback_t) (struct decoder_t*, decoder_event_type_t, void *data);
 
 
 typedef enum decoder_type_t {
@@ -48,7 +40,6 @@ typedef struct decoder_data_mpeg_t {
 
 typedef struct decoder_t {
 	decoder_type_t type;
-	decoder_callback_t callback;
 	union {
 		decoder_data_mpeg_t mpeg;
 	} data;
@@ -57,4 +48,5 @@ typedef struct decoder_t {
 
 esp_err_t decoder_init(decoder_t *decoder, source_t *source);
 esp_err_t decoder_feed(decoder_t *decoder, char *buf, ssize_t size);
+decoder_pcm_data_t *decoder_decode(decoder_t *decoder);
 void decoder_destroy(decoder_t *decoder);

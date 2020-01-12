@@ -248,6 +248,8 @@ static playlist_t playlist = { .callback = NULL };
 static source_t source = { .type = SOURCE_TYPE_UNKNOWN, .semaphore = NULL };
 static decoder_t decoder;
 static SemaphoreHandle_t has_source_semaphore = NULL;
+static SemaphoreHandle_t source_ready_semaphore = NULL;
+static buffer_t network_buffer = { .size = 0, .r_pos = 0, .w_pos = 0 };
 
 
 /* Events */
@@ -295,8 +297,6 @@ void player_task(void *arg) {
 	for (;;) {
 		// Wait until has source
 		xSemaphoreTake(has_source_semaphore, portMAX_DELAY);
-		// Destroy current source immediately
-		source_destroy(&source);
 		// Do not play instant
 		vTaskDelay(250 / portTICK_PERIOD_MS);
 
@@ -317,8 +317,52 @@ void player_task(void *arg) {
 			}
 		}
 
+		esp_err_t status = decoder_init(&decoder, &source);
+		if (status != ESP_OK) {
+			decoder_destroy(&decoder);
+			source_destroy(&source);
+			esp_event_post_to(player_event_loop, PLAYBACK_EVENT, PLAYBACK_EVENT_ERROR, NULL, 0, portMAX_DELAY);
+			continue;
+		}
+
+		// Unblock reading task
+		xSemaphoreGive(source_ready_semaphore);
+
+		vTaskDelay(100);
+
 		// Cleanup
+		xSemaphoreTake(source_ready_semaphore, 0);
 		source_destroy(&source);
+		printf("source destroy\n");
+	}
+	vTaskDelete(NULL);
+}
+
+
+void read_task(void *arg) {
+	char source_read_buffer[SOURCE_READ_BUFFER_SIZE];
+
+	for (;;) {
+		// Wait for new job
+		xSemaphoreTake(source_ready_semaphore, portMAX_DELAY);
+		printf("source ready\n");
+
+		// Read source until EOF or fail
+		for (;;) {
+			printf("read\n");
+			ssize_t size = source_read(&source, source_read_buffer, sizeof(source_read_buffer));
+			printf("%ld\n", size);
+			if (size == SOURCE_READ_AGAIN) {
+				continue;
+			}
+			else if (size < 0) {
+				break;
+			}
+			else if (size > 0) {
+				printf("write\n");
+				buffer_write(&network_buffer, source_read_buffer, size);
+			}
+		}
 	}
 	vTaskDelete(NULL);
 }
@@ -331,11 +375,35 @@ void init_player(void) {
 		ESP_LOGE(TAG, "Semaphore has_source_semaphore not crated.");
 		abort();
 	}
+
+	source_ready_semaphore = xSemaphoreCreateBinary();
+	if (source_ready_semaphore == NULL) {
+		ESP_LOGE(TAG, "Semaphore source_ready_semaphore not crated.");
+		abort();
+	}
+
 	source.semaphore = xSemaphoreCreateBinary();
 	if (source.semaphore == NULL) {
 		ESP_LOGE(TAG, "Semaphore source.semaphore not crated.");
 		abort();
 	}
+
+	source.wait_data_semaphore = xSemaphoreCreateBinary();
+	if (source.wait_data_semaphore == NULL) {
+		ESP_LOGE(TAG, "Semaphore source.wait_data_semaphore not crated.");
+		abort();
+	}
+
+	char *stream_buffer = heap_caps_malloc(STREAM_BUFFER_SIZE, MALLOC_CAP_DEFAULT | MALLOC_CAP_SPIRAM);
+	if (!stream_buffer) {
+		ESP_LOGE(TAG, "stream buffer not allocated");
+		abort();
+	}
+
+	network_buffer.buf = stream_buffer;
+	network_buffer.size = STREAM_BUFFER_SIZE;
+	buffer_init(&network_buffer);
+
 	xSemaphoreGive(source.semaphore);
 	playlist_init(&playlist, on_playlist_item_changed, NULL);
 	esp_event_handler_register_with(player_event_loop, NETWORK_EVENT, ESP_EVENT_ANY_ID, on_network_event, NULL);

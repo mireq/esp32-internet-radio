@@ -62,9 +62,9 @@ typedef struct source_data_http_t {
 typedef struct source_t {
 	source_type_t type;
 	source_metadata_callback_t metadata_callback;
-	uri_t uri;
 	char content_type[HTTP_HEADER_VALUE_BUFFER_SIZE];
 	SemaphoreHandle_t semaphore;
+	SemaphoreHandle_t wait_data_semaphore;
 	union {
 		source_data_http_t http;
 	} data;

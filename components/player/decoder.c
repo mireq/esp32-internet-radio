@@ -37,10 +37,10 @@ static int32_t decoder_mpeg_scale(mad_fixed_t sample) {
 
 static void decoder_mpeg_prepare_audio(decoder_t *decoder) {
 	static audio_sample_t data[1152*2];
-	static decoder_pcm_data_t pcm_data = {
-		.data = data,
-		.length = sizeof(data) / 2,
-	};
+	//static decoder_pcm_data_t pcm_data = {
+	//	.data = data,
+	//	.length = sizeof(data) / 2,
+	//};
 	decoder_data_mpeg_t *mpeg = &decoder->data.mpeg;
 	struct mad_pcm *pcm = &mpeg->mad_synth.pcm;
 	const mad_fixed_t *right_ch = pcm->channels == 2 ? pcm->samples[1] : pcm->samples[0];
@@ -61,10 +61,12 @@ static void decoder_mpeg_prepare_audio(decoder_t *decoder) {
 		data[(i << 1) + 1] = sample;
 		*/
 	}
-	pcm_data.length = pcm->length;
+	//pcm_data.length = pcm->length;
+	/*
 	if (decoder->callback != NULL) {
 		decoder->callback(decoder, DECODER_PCM, &pcm_data);
 	}
+	*/
 }
 
 
@@ -152,6 +154,11 @@ static esp_err_t decoder_mpeg_feed(decoder_t *decoder, char *buf, ssize_t size) 
 }
 
 
+static decoder_pcm_data_t *decoder_mpeg_decode(decoder_t *decoder) {
+	return NULL;
+}
+
+
 static void decoder_mpeg_destroy(decoder_t *decoder) {
 	decoder->type = DECODER_UNKNOWN;
 	decoder_data_mpeg_t *mpeg = &decoder->data.mpeg;
@@ -181,6 +188,14 @@ esp_err_t decoder_feed(decoder_t *decoder, char *buf, ssize_t size) {
 		return decoder_mpeg_feed(decoder, buf, size);
 	}
 	return ESP_FAIL;
+}
+
+
+decoder_pcm_data_t *decoder_decode(decoder_t *decoder) {
+	if (decoder->type == DECODER_MPEG) {
+		return decoder_mpeg_decode(decoder);
+	}
+	return NULL;
 }
 
 

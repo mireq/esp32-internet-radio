@@ -17,3 +17,4 @@ void init_audio_output(void);
 */
 void init_player(void);
 void player_task(void *arg);
+void read_task(void *arg);

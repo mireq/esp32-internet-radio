@@ -82,6 +82,10 @@ esp_err_t audio_output_init(audio_output_t *output) {
 
 
 esp_err_t audio_output_set_sample_rate(audio_output_t *output, int rate) {
+	if (output->sample_rate == rate) {
+		return ESP_OK;
+	}
+
 #ifdef SIMULATOR
 	int err;
 	if ((err = snd_pcm_set_params(output->handle, SND_PCM_FORMAT_S32, SND_PCM_ACCESS_RW_INTERLEAVED, 2, output->sample_rate, 1, 500000)) < 0) {

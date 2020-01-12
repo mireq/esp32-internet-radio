@@ -13,7 +13,7 @@ typedef struct buffer_t {
 	size_t size;
 	size_t r_pos;
 	size_t w_pos;
-	bool destroying;
+	bool eof;
 	SemaphoreHandle_t can_write_semaphore;
 	SemaphoreHandle_t can_read_semaphore;
 } buffer_t;
@@ -21,6 +21,8 @@ typedef struct buffer_t {
 
 void buffer_init(buffer_t *buffer);
 esp_err_t buffer_read(buffer_t *buffer, char *buf, size_t size);
+void buffer_open(buffer_t *buffer);
+void buffer_set_eof(buffer_t *buffer);
 esp_err_t buffer_write(buffer_t *buffer, char *buf, size_t size);
 void buffer_clear(buffer_t *buffer);
 void buffer_destroy(buffer_t *buffer);

@@ -18,6 +18,7 @@ static esp_err_t decoder_mpeg_init(decoder_t *decoder, source_t *source) {
 	mad_synth_init(&mpeg->mad_synth);
 	mad_frame_init(&mpeg->mad_frame);
 	mpeg->w_pos = mpeg->buf;
+	decoder->pcm.data = mpeg->audio_buf;
 	decoder->type = DECODER_MPEG;
 	ESP_LOGI(TAG, "mad init");
 	return ESP_OK;
@@ -35,12 +36,7 @@ static int32_t decoder_mpeg_scale(mad_fixed_t sample) {
 */
 
 
-static void decoder_mpeg_prepare_audio(decoder_t *decoder) {
-	static audio_sample_t data[1152*2];
-	//static decoder_pcm_data_t pcm_data = {
-	//	.data = data,
-	//	.length = sizeof(data) / 2,
-	//};
+static void decoder_mpeg_prepare_audio(decoder_t *decoder, decoder_pcm_data_t *pcm_data) {
 	decoder_data_mpeg_t *mpeg = &decoder->data.mpeg;
 	struct mad_pcm *pcm = &mpeg->mad_synth.pcm;
 	const mad_fixed_t *right_ch = pcm->channels == 2 ? pcm->samples[1] : pcm->samples[0];
@@ -53,7 +49,7 @@ static void decoder_mpeg_prepare_audio(decoder_t *decoder) {
 		else {
 			sample = *left_ch++;
 		}
-		data[i] = sample;
+		pcm_data->data[i] = sample;
 		/*
 		sample = decoder_mpeg_scale(*right_ch++);
 		data[i << 1] = sample;
@@ -61,12 +57,7 @@ static void decoder_mpeg_prepare_audio(decoder_t *decoder) {
 		data[(i << 1) + 1] = sample;
 		*/
 	}
-	//pcm_data.length = pcm->length;
-	/*
-	if (decoder->callback != NULL) {
-		decoder->callback(decoder, DECODER_PCM, &pcm_data);
-	}
-	*/
+	pcm_data->length = pcm->length;
 }
 
 
@@ -74,7 +65,7 @@ typedef uint32_t framebuffer_t[256][1008];
 extern framebuffer_t *framebuffer;
 
 
-static esp_err_t decoder_mpeg_feed(decoder_t *decoder, char *buf, ssize_t size) {
+static void decoder_mpeg_feed(decoder_t *decoder, char *buf, ssize_t size) {
 	decoder_data_mpeg_t *mpeg = &decoder->data.mpeg;
 	size_t processed_size = mpeg->w_pos - mpeg->buf;
 	if (processed_size + MAD_BUFFER_GUARD + size >= MAX_FRAME_SIZE) {
@@ -83,9 +74,15 @@ static esp_err_t decoder_mpeg_feed(decoder_t *decoder, char *buf, ssize_t size) 
 	}
 	memcpy(mpeg->w_pos, buf, size);
 	mpeg->w_pos += size;
+}
 
+
+static decoder_pcm_data_t *decoder_mpeg_decode(decoder_t *decoder) {
 	esp_err_t status = ESP_OK;
+	decoder_data_mpeg_t *mpeg = &decoder->data.mpeg;
 	const unsigned char *r_buffer = mpeg->buf;
+	decoder->pcm.length = 0;
+	decoder_pcm_data_t *out = &decoder->pcm.length;
 
 	while (1) {
 		mad_stream_buffer(&mpeg->mad_stream, r_buffer, mpeg->w_pos - r_buffer);
@@ -96,47 +93,23 @@ static esp_err_t decoder_mpeg_feed(decoder_t *decoder, char *buf, ssize_t size) 
 			else if (!MAD_RECOVERABLE(mpeg->mad_stream.error)) {
 				status = ESP_FAIL;
 				ESP_LOGW(TAG, "mad_error %s", mad_stream_errorstr(&mpeg->mad_stream));
+				out = NULL;
 				break;
 			}
 		}
 		else {
 			taskYIELD();
-
-			/*
-			for (size_t sb = 0; sb < 28; ++sb) {
-				for (size_t s = 0; s < 36; ++s) {
-					//mad_fixed_t value = abs(mpeg->mad_frame.sbsample[0][s][sb]) / (MAD_F_ONE / 256);
-					mad_fixed_t value = 0;
-					if (s < 18) {
-						value = mpeg->mad_frame.overlap[0][sb][s];
-					}
-					printf("%d\n", value);
-					int col = sb * 36 + s;
-					for (size_t i = 0; i < 256; ++i) {
-						if (i >= value) {
-							if (col % 36 == 0) {
-								(*framebuffer)[255-i][col] = 0xff444444;
-							}
-							else {
-								(*framebuffer)[255-i][col] = 0xff000000;
-							}
-						}
-						else {
-							(*framebuffer)[255-i][col] = 0xffffffff;
-						}
-					}
-				}
-			}
-			*/
-
 			mad_synth_frame(&mpeg->mad_synth, &mpeg->mad_frame);
 			taskYIELD();
-			decoder_mpeg_prepare_audio(decoder);
-			taskYIELD();
+			decoder_mpeg_prepare_audio(decoder, &decoder->pcm);
+			if (mpeg->mad_stream.next_frame) {
+				r_buffer = mpeg->mad_stream.next_frame;
+			}
+			break;
 		}
 
 		if (!mpeg->mad_stream.next_frame) {
-			status = ESP_FAIL;
+			out = NULL;
 			break;
 		}
 		else {
@@ -150,12 +123,7 @@ static esp_err_t decoder_mpeg_feed(decoder_t *decoder, char *buf, ssize_t size) 
 		mpeg->w_pos -= processed_size;
 	}
 
-	return status;
-}
-
-
-static decoder_pcm_data_t *decoder_mpeg_decode(decoder_t *decoder) {
-	return NULL;
+	return &decoder->pcm;
 }
 
 
@@ -174,6 +142,8 @@ static void decoder_mpeg_destroy(decoder_t *decoder) {
 
 esp_err_t decoder_init(decoder_t *decoder, source_t *source) {
 	decoder->type = DECODER_UNKNOWN;
+	decoder->pcm.data = NULL;
+	decoder->pcm.length = 0;
 	if (strcmp(source->content_type, "audio/mpeg") == 0) {
 		return decoder_mpeg_init(decoder, source);
 	}
@@ -183,11 +153,10 @@ esp_err_t decoder_init(decoder_t *decoder, source_t *source) {
 }
 
 
-esp_err_t decoder_feed(decoder_t *decoder, char *buf, ssize_t size) {
+void decoder_feed(decoder_t *decoder, char *buf, ssize_t size) {
 	if (decoder->type == DECODER_MPEG) {
-		return decoder_mpeg_feed(decoder, buf, size);
+		decoder_mpeg_feed(decoder, buf, size);
 	}
-	return ESP_FAIL;
 }
 
 
@@ -203,4 +172,6 @@ void decoder_destroy(decoder_t *decoder) {
 	if (decoder->type == DECODER_MPEG) {
 		decoder_mpeg_destroy(decoder);
 	}
+	decoder->pcm.data = NULL;
+	decoder->pcm.length = 0;
 }

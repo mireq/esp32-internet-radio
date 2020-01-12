@@ -4,9 +4,7 @@
 
 static const char *TAG = "audio_output";
 
-#ifdef SIMULATOR
-static char *device = "default";
-#else
+#ifndef SIMULATOR
 static i2s_dev_t* I2S[I2S_NUM_MAX] = {&I2S0, &I2S1};
 #endif
 
@@ -15,9 +13,11 @@ esp_err_t audio_output_init(audio_output_t *output) {
 #ifdef SIMULATOR
 	int err;
 
-	if ((err = snd_pcm_open(&output->handle, device, SND_PCM_STREAM_PLAYBACK, SND_PCM_NONBLOCK)) < 0) {
-		ESP_LOGE(TAG, "Playback open error: %s", snd_strerror(err));
-		return ESP_FAIL;
+	if ((err = snd_pcm_open(&output->handle, "pulse", SND_PCM_STREAM_PLAYBACK, SND_PCM_NONBLOCK)) < 0) {
+		if ((err = snd_pcm_open(&output->handle, "default", SND_PCM_STREAM_PLAYBACK, SND_PCM_NONBLOCK)) < 0) {
+			ESP_LOGE(TAG, "Playback open error: %s", snd_strerror(err));
+			return ESP_FAIL;
+		}
 	}
 
 	snd_pcm_hw_params_t *hw_params;

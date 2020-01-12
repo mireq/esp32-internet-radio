@@ -8,13 +8,7 @@
 #define SOURCE_READ_BUFFER_SIZE 1024
 
 
-/*
-void init_player_events(void);
-void start_playback(void);
-void stop_playback(void);
-void init_player(void);
-void init_audio_output(void);
-*/
 void init_player(void);
 void player_task(void *arg);
 void read_task(void *arg);
+void player_stats_task(void *arg);

@@ -190,6 +190,13 @@ static const task_init_instruction_t task_init_instructions[] = {
 		.priority = tskIDLE_PRIORITY + 1,
 	},
 	{
+		// Player stats
+		.task = player_stats_task,
+		.task_name = "player_stats",
+		.stack_depth = configMINIMAL_STACK_SIZE + 1024,
+		.priority = tskIDLE_PRIORITY + 1,
+	},
+	{
 		.task = NULL
 	}
 };

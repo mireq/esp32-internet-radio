@@ -33,6 +33,7 @@ typedef struct decoder_data_mpeg_t {
 	struct mad_stream mad_stream;
 	struct mad_frame mad_frame;
 	struct mad_synth mad_synth;
+	audio_sample_t audio_buf[1152*2];
 	unsigned char buf[MAX_FRAME_SIZE];
 	unsigned char *w_pos;
 } decoder_data_mpeg_t;
@@ -40,6 +41,7 @@ typedef struct decoder_data_mpeg_t {
 
 typedef struct decoder_t {
 	decoder_type_t type;
+	decoder_pcm_data_t pcm;
 	union {
 		decoder_data_mpeg_t mpeg;
 	} data;
@@ -47,6 +49,6 @@ typedef struct decoder_t {
 
 
 esp_err_t decoder_init(decoder_t *decoder, source_t *source);
-esp_err_t decoder_feed(decoder_t *decoder, char *buf, ssize_t size);
+void decoder_feed(decoder_t *decoder, char *buf, ssize_t size);
 decoder_pcm_data_t *decoder_decode(decoder_t *decoder);
 void decoder_destroy(decoder_t *decoder);

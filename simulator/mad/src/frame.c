@@ -104,7 +104,6 @@ void mad_frame_init(struct mad_frame *frame)
  */
 void mad_frame_finish(struct mad_frame *frame)
 {
-	printf("\n\nframe finish\n\n");
   mad_header_finish(&frame->header);
 
   if (frame->overlap) {

@@ -1,31 +1,6 @@
 (function() {
 
 
-/*
-var commandLength = 2;
-var connected = false;
-
-
-var socket = new WebSocket('ws://10.0.0.2:80');
-socket.addEventListener('open', function (event) {
-	var buf = new ArrayBuffer(commandLength);
-	var bufView = new Uint16Array(buf);
-	bufView[0] = 0;
-	socket.send(buf);
-	console.log("opened socket");
-	connected = true;
-});
-socket.addEventListener('close', function (event) {
-	connected = false;
-});
-socket.addEventListener('error', function (event) {
-	connected = false;
-});
-socket.addEventListener('message', function (event) {
-	console.log("message", event);
-});
-*/
-
 function Signal() {
 	var self = this;
 	this.listeners = [];
@@ -103,11 +78,11 @@ function Connection(socket_url) {
 		});
 	};
 
-	function sendMsg(data) {
+	this.send = function(data) {
 		conn.send(data);
-	}
+	};
 
-	function close() {
+	this.close = function() {
 		if (self.status == 'connected' && conn !== undefined) {
 			conn.close();
 			conn = undefined;
@@ -115,11 +90,9 @@ function Connection(socket_url) {
 			signals.statusChanged.send(self.status);
 			signals.close.send();
 		}
-	}
+	};
 
 	this.signals = signals;
-	this.sendMsg = sendMsg;
-	this.close = close;
 }
 
 
@@ -130,22 +103,46 @@ function Api(socket_url) {
 	var pongReceived = false;
 
 	function checkPong() {
+		/*
+		var commandLength = 2;
+		var buf = new ArrayBuffer(commandLength);
+		var bufView = new Uint16Array(buf);
+		bufView[0] = 0;
+		self.connection.send(buf);
+		*/
+		self.sendCommand(0);
+
 		if (pongReceived) {
 			pongReceived = false;
 			pingTimer = setTimeout(checkPong, 1000);
 		}
 		else {
-			self.connection.close();
+			pingTimer = setTimeout(checkPong, 1000);
+			//self.connection.close();
+			//pingTimer = undefined;
+			//console.log("closing connection");
 		}
 	}
 
-	self.connection = new Connection(socket_url);
+	this.connection = new Connection(socket_url);
 
-	self.connection.signals.close.connect(function() {
+	this.sendCommand = function(commandNr, data) {
+		if (data === undefined) {
+			data = new Uint8Array(0);
+		}
+		var buf = new ArrayBuffer(data.byteLength + 2);
+		var commandView = new Uint16Array(buf, 0, 1);
+		commandView[0] = commandNr;
+		var dataView = new Uint8Array(buf, 2, data.length);
+		dataView.set(new Uint8Array(data), data.byteLength);
+		self.connection.send(buf);
+	};
+
+	this.connection.signals.close.connect(function() {
 		self.connection.connect();
 	});
 
-	self.connection.signals.statusChanged.connect(function(status) {
+	this.connection.signals.statusChanged.connect(function(status) {
 		console.log(status);
 		if (status === 'connected' && pingTimer === undefined) {
 			pingTimer = setTimeout(checkPong, 1000);
@@ -155,7 +152,11 @@ function Api(socket_url) {
 		}
 	});
 
-	self.connection.connect();
+	this.connection.signals.messageReceived.connect(function(event) {
+		console.log(event);
+	});
+
+	this.connection.connect();
 }
 
 

@@ -82,7 +82,7 @@ static decoder_pcm_data_t *decoder_mpeg_decode(decoder_t *decoder) {
 	decoder_data_mpeg_t *mpeg = &decoder->data.mpeg;
 	const unsigned char *r_buffer = mpeg->buf;
 	decoder->pcm.length = 0;
-	decoder_pcm_data_t *out = &decoder->pcm.length;
+	decoder_pcm_data_t *out = &decoder->pcm;
 
 	while (1) {
 		mad_stream_buffer(&mpeg->mad_stream, r_buffer, mpeg->w_pos - r_buffer);
@@ -123,7 +123,7 @@ static decoder_pcm_data_t *decoder_mpeg_decode(decoder_t *decoder) {
 		mpeg->w_pos -= processed_size;
 	}
 
-	return &decoder->pcm;
+	return out;
 }
 
 

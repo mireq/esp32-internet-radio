@@ -3,6 +3,7 @@ set(FREERTOS_SOURCES
 	"list.c"
 	"queue.c"
 	"tasks.c"
+	"timers.c"
 	"portable/GCC/Posix/port.c"
 	"portable/MemMang/heap_3.c"
 )

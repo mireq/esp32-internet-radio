@@ -35,6 +35,14 @@ typedef struct command_message_t {
 typedef command_message_t response_message_t;
 
 
+typedef enum WS_COMMAND_t {
+	WS_COMMAND_PING,
+} WS_COMMAND_t;
+typedef enum WS_RESPONSE_t {
+	WS_RESPONSE_PONG,
+} WS_RESPONSE_t;
+
+
 static const char http_not_found[] = "HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n";
 static const char http_found[] = "HTTP/1.1 302 Found\r\nLocation: %s?device=%s\r\nConnection: close\r\n\r\n";
 static const char http_ws_start[] = "HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ";
@@ -145,8 +153,8 @@ static esp_err_t send_websocket_response(http_request_t *request, const response
 
 
 static esp_err_t handle_command_ping(http_request_t *request, command_message_t *message) {
-	const response_message_t response = {
-		.command = CONTROL_RESPONSE_PONG,
+	static const response_message_t response = {
+		.command = WS_RESPONSE_PONG,
 		.size = 0,
 	};
 	send_websocket_response(request, &response);
@@ -156,7 +164,7 @@ static esp_err_t handle_command_ping(http_request_t *request, command_message_t 
 
 static esp_err_t process_websocket_message(http_request_t *request, command_message_t *message) {
 	switch (message->command) {
-		case CONTROL_COMMAND_PING:
+		case WS_COMMAND_PING:
 			return handle_command_ping(request, message);
 		default:
 			return ESP_FAIL;

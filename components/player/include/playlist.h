@@ -42,3 +42,4 @@ void playlist_open_current(playlist_t *playlist);
 void playlist_cancel(playlist_t *playlist);
 void playlist_get_current_path(playlist_t *playlist, char *buf);
 void playlist_get_item(playlist_t *playlist, playlist_item_t *item);
+void playlist_set_item_simple(playlist_t *playlist, const char *name, const char *uri);

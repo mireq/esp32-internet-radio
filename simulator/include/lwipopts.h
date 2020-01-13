@@ -74,10 +74,10 @@
 
 /*#define SIO_DEBUG		LWIP_DBG_ON*/
 
-#define TCPIP_MBOX_SIZE						5
-#define DEFAULT_TCP_RECVMBOX_SIZE           5
-#define DEFAULT_UDP_RECVMBOX_SIZE           5
-#define DEFAULT_ACCEPTMBOX_SIZE         6
+#define TCPIP_MBOX_SIZE						8
+#define DEFAULT_TCP_RECVMBOX_SIZE           4
+#define DEFAULT_UDP_RECVMBOX_SIZE           4
+#define DEFAULT_ACCEPTMBOX_SIZE         4
 
 extern unsigned char debug_flags;
 #define LWIP_DBG_TYPES_ON debug_flags
@@ -176,7 +176,7 @@ a lot of data that needs to be copied, this should be set high. */
 
 /* TCP sender buffer space (pbufs). This must be at least = 2 *
    TCP_SND_BUF/TCP_MSS for things to work. */
-#define TCP_SND_QUEUELEN        (8 * TCP_SND_BUF/TCP_MSS)
+#define TCP_SND_QUEUELEN        (4 * TCP_SND_BUF/TCP_MSS)
 
 /* TCP writable space (bytes). This must be less than or equal
    to TCP_SND_BUF. It is the amount of space which must be

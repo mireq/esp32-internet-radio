@@ -1,6 +1,7 @@
 #pragma once
 
 #include "esp_event.h"
+#include "playlist.h"
 
 
 ESP_EVENT_DECLARE_BASE(NETWORK_EVENT);
@@ -34,3 +35,4 @@ typedef enum {
 
 
 extern esp_event_loop_handle_t player_event_loop;
+extern playlist_t playlist;

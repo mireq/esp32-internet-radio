@@ -23,7 +23,7 @@ static const char *TAG = "player";
 /* Variables */
 
 
-static playlist_t playlist = { .callback = NULL };
+playlist_t playlist = { .callback = NULL };
 static source_t source = { .type = SOURCE_TYPE_UNKNOWN, .semaphore = NULL };
 static decoder_t decoder;
 static SemaphoreHandle_t has_source_semaphore = NULL;
@@ -131,6 +131,7 @@ void player_task(void *arg) {
 			if (status != SOURCE_NO_ERROR) {
 				source_destroy(&source);
 				buffer_clear(&network_buffer);
+				ESP_LOGE(TAG, "Cannot open source %s", playlist_item.uri);
 				esp_event_post_to(player_event_loop, PLAYBACK_EVENT, PLAYBACK_EVENT_ERROR, NULL, 0, portMAX_DELAY);
 				continue;
 			}

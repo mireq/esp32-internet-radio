@@ -7,3 +7,6 @@
 [submodule "simulator/mbedtls/src"]
 	path = simulator/mbedtls/src
 	url = https://github.com/ARMmbed/mbedtls.git
+[submodule "simulator/lwip/contrib"]
+	path = simulator/lwip/contrib
+	url = https://git.savannah.nongnu.org/git/lwip/lwip-contrib.git

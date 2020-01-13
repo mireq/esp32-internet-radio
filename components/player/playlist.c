@@ -65,7 +65,9 @@ void playlist_open_current(playlist_t *playlist) {
 void playlist_cancel(playlist_t *playlist) {
 	if (playlist->current.loaded) {
 		clear_playlist_item(&playlist->current);
-		playlist->callback(playlist, &playlist->current);
+		if (playlist->callback) {
+			playlist->callback(playlist, &playlist->current);
+		}
 	}
 }
 
@@ -75,4 +77,13 @@ void playlist_get_current_path(playlist_t *playlist, char *buf) {
 
 void playlist_get_item(playlist_t *playlist, playlist_item_t *item) {
 	memcpy(item, &playlist->current, sizeof(playlist->current));
+}
+
+void playlist_set_item_simple(playlist_t *playlist, const char *name, const char *uri) {
+	strncpy(playlist->current.name, name, sizeof(playlist->current.name));
+	strncpy(playlist->current.uri, uri, sizeof(playlist->current.uri));
+	playlist->current.loaded = true;
+	if (playlist->callback) {
+		playlist->callback(playlist, &playlist->current);
+	}
 }

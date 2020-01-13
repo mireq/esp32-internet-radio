@@ -2,6 +2,7 @@
 
 
 var COMMAND_PING = 0;
+var COMMAND_SET_PLAYLIST_ITEM = 1;
 
 var RESPONSE_PONG = 0;
 
@@ -76,11 +77,13 @@ function Connection(socket_url) {
 			self.close();
 		});
 		conn.addEventListener('error', function (event) {
+			console.log("Error, closing connection", event);
 			self.close();
 		});
 	};
 
 	this.send = function(data) {
+		console.log("send", data);
 		conn.send(data);
 	};
 
@@ -113,7 +116,6 @@ function Api(socket_url) {
 		else {
 			self.connection.close();
 			pingTimer = undefined;
-			console.log("closing connection");
 		}
 	}
 
@@ -123,11 +125,14 @@ function Api(socket_url) {
 		if (data === undefined) {
 			data = new Uint8Array(0);
 		}
+		else {
+			data = new Uint8Array(data);
+		}
 		var buf = new ArrayBuffer(data.byteLength + 2);
 		var commandView = new Uint16Array(buf, 0, 1);
 		commandView[0] = commandNr;
-		var dataView = new Uint8Array(buf, 2, data.length);
-		dataView.set(new Uint8Array(data), data.byteLength);
+		var dataView = new Uint8Array(buf, 2, data.byteLength);
+		dataView.set(new Uint8Array(data), 0);
 		self.connection.send(buf);
 	};
 
@@ -170,6 +175,44 @@ function Api(socket_url) {
 
 
 var api = new Api('ws://10.0.0.2:80');
+
+
+function onPlaylistClick(e) {
+	var target = e.target;
+	if (target.tagName.toLowerCase() !== "a") {
+		return;
+	}
+
+	e.preventDefault();
+
+	var uri = target.getAttribute('href');
+	var text = target.textContent;
+
+	var uriArray = new TextEncoder().encode(uri);
+	var textArray = new TextEncoder().encode(text);
+
+	var buf = new ArrayBuffer(uriArray.byteLength + textArray.byteLength + 2);
+	var bufferView = new Uint8Array(buf);
+
+	bufferView.set(uriArray, 0);
+	bufferView.set(textArray, uriArray.byteLength + 1);
+
+	api.sendCommand(COMMAND_SET_PLAYLIST_ITEM, buf);
+	//api.sendCommand(COMMAND_PING, new ArrayBuffer(1));
+}
+
+
+function onClick(e) {
+	if (e.which !== 1) {
+		return;
+	}
+	if (e.target.closest('.playlist') !== null) {
+		onPlaylistClick(e);
+	}
+}
+
+
+document.body.addEventListener('click', onClick);
 
 
 }());

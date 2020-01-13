@@ -22,7 +22,6 @@ set(LWIP_SOURCES
 	"core/timeouts.c"
 	"core/udp.c"
 
-	"core/ipv4/acd.c"
 	"core/ipv4/autoip.c"
 	"core/ipv4/dhcp.c"
 	"core/ipv4/etharp.c"
@@ -103,12 +102,12 @@ include_directories(
 	"${CMAKE_CURRENT_SOURCE_DIR}/../freertos/src/FreeRTOS_Posix/FreeRTOS_Kernel/portable/GCC/Posix"
 	"${CMAKE_CURRENT_SOURCE_DIR}/../include"
 	"${CMAKE_CURRENT_SOURCE_DIR}/src/src/include"
-	"${CMAKE_CURRENT_SOURCE_DIR}/src/contrib/ports/freertos/include"
-	"${CMAKE_CURRENT_SOURCE_DIR}/src/contrib/ports/unix/port/include"
+	"${CMAKE_CURRENT_SOURCE_DIR}/contrib/ports/freertos/include"
+	"${CMAKE_CURRENT_SOURCE_DIR}/contrib/ports/unix/port/include"
 )
 
 list(TRANSFORM LWIP_SOURCES PREPEND ${CMAKE_CURRENT_SOURCE_DIR}/src/src/)
-list(TRANSFORM LWIP_CONTRIB PREPEND ${CMAKE_CURRENT_SOURCE_DIR}/src/contrib/)
+list(TRANSFORM LWIP_CONTRIB PREPEND ${CMAKE_CURRENT_SOURCE_DIR}/contrib/)
 add_definitions(-DDEFAULT_THREAD_STACKSIZE=1024 -DTCPIP_THREAD_STACKSIZE=1024 -g3 -ggdb)
 add_library(lwip STATIC
 	${LWIP_SOURCES}

@@ -12,8 +12,8 @@
 #include "mbedtls/sha1.h"
 
 #include "control_http.h"
-#include "interface.h"
 #include "http_server.h"
+#include "interface.h"
 
 
 #if CONFIG_HTTP_CONTROL
@@ -23,24 +23,17 @@
 
 typedef struct websocket_frame_t {
 	char data[MAX_WS_FRAME_SIZE];
-	uint8_t size;
+	uint16_t size;
 } websocket_frame_t;
 
 
 typedef struct command_message_t {
 	uint16_t command;
 	char data[MAX_WS_FRAME_SIZE - 2];
-	uint8_t size;
+	uint16_t size;
 } command_message_t;
 typedef command_message_t response_message_t;
 
-
-typedef enum WS_COMMAND_t {
-	WS_COMMAND_PING,
-} WS_COMMAND_t;
-typedef enum WS_RESPONSE_t {
-	WS_RESPONSE_PONG,
-} WS_RESPONSE_t;
 
 
 static const char http_not_found[] = "HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n";
@@ -98,7 +91,7 @@ static esp_err_t receive_websocket_frame(http_request_t *request, websocket_fram
 		return ESP_FAIL;
 	}
 
-	frame->size = header & 0x7f;
+	frame->size = (header >> 8) & 0x7f;
 
 	// Message too long
 	if (frame->size > MAX_WS_FRAME_SIZE) {
@@ -152,7 +145,7 @@ static esp_err_t send_websocket_response(http_request_t *request, const response
 }
 
 
-static esp_err_t handle_command_ping(http_request_t *request, command_message_t *message) {
+static esp_err_t handle_ping(http_request_t *request, command_message_t *message) {
 	static const response_message_t response = {
 		.command = WS_RESPONSE_PONG,
 		.size = 0,
@@ -162,10 +155,21 @@ static esp_err_t handle_command_ping(http_request_t *request, command_message_t 
 }
 
 
+static esp_err_t handle_set_playlist_item(http_request_t *request, command_message_t *message) {
+	char *uri = message->data;
+	char *name = message->data;
+	name += strlen(uri) + 1;
+	playlist_set_item_simple(&playlist, name, uri);
+	return ESP_OK;
+}
+
+
 static esp_err_t process_websocket_message(http_request_t *request, command_message_t *message) {
 	switch (message->command) {
 		case WS_COMMAND_PING:
-			return handle_command_ping(request, message);
+			return handle_ping(request, message);
+		case WS_COMMAND_SET_PLAYLIST_ITEM:
+			return handle_set_playlist_item(request, message);
 		default:
 			return ESP_FAIL;
 	}
@@ -179,11 +183,9 @@ static void control_http_handler(http_request_t *request) {
 		if (receive_websocket_frame(request, &websocket_frame) != ESP_OK) {
 			break;
 		}
-		command_message_t msg;
-		memcpy(&msg.command, websocket_frame.data, sizeof(msg.command));
-		memcpy(&msg.data, websocket_frame.data + sizeof(msg.command), sizeof(msg.data));
-		msg.size = websocket_frame.size - sizeof(msg.command);
-		if (process_websocket_message(request, &msg) != ESP_OK) {
+		command_message_t *msg = (command_message_t *)&websocket_frame;
+		msg->size -= sizeof(msg->command);
+		if (process_websocket_message(request, msg) != ESP_OK) {
 			break;
 		}
 	}

@@ -25,7 +25,13 @@ function getSettings(key, onSuccess) {
 	var settingsStore = transaction.objectStore('settings');
 	var req = settingsStore.get(key);
 	req.onsuccess = function(event) {
-		onSuccess(event.target.result.value);
+		var result = event.target.result;
+		if (result === undefined) {
+			onSuccess(undefined);
+		}
+		else {
+			onSuccess(event.target.result.value);
+		}
 	};
 }
 
@@ -206,9 +212,6 @@ function Api(socket_url) {
 }
 
 
-//var api = new Api('wss://10.0.0.2:80');
-
-
 function onPlaylistClick(e) {
 	var target = e.target;
 	if (target.tagName.toLowerCase() !== "a") {
@@ -244,7 +247,7 @@ function onClick(e) {
 	if (_.closest(target, '.disconnect') !== null) {
 		updateSettings('address', undefined);
 		if (api !== undefined) {
-			api.close();
+			api.connection.close();
 			api = undefined;
 		}
 		document.body.className = 'login';
@@ -262,13 +265,10 @@ if (window.location.protocol === 'https:' && 'serviceWorker' in navigator) {
 }
 
 
-
 function startApp() {
 	if (!wsAddress) {
+		document.body.className = 'login';
 		return;
-	}
-	else {
-		updateSettings('address', wsAddress);
 	}
 	if (window.location.protocol === 'https:') {
 		wsAddress = 'wss://' + wsAddress;
@@ -277,6 +277,7 @@ function startApp() {
 		wsAddress = 'ws://' + wsAddress;
 	}
 	document.body.className = 'connecting';
+	api = new Api(wsAddress);
 }
 
 document.getElementById('page_login').setAttribute('action', window.location);
@@ -291,10 +292,16 @@ document.getElementById('page_login').setAttribute('action', window.location);
 	};
 	dbRequest.onsuccess = function(event) {
 		storage = event.target.result;
-		getSettings('address', function(value) {
-			wsAddress = value;
+		if (wsAddress) {
+			updateSettings('address', wsAddress);
 			startApp();
-		});
+		}
+		else {
+			getSettings('address', function(value) {
+				wsAddress = value;
+				startApp();
+			});
+		}
 	};
 	dbRequest.onerror = function(event) {
 		startApp();

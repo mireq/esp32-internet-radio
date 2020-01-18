@@ -41,7 +41,7 @@ function updateSettings(key, value) {
 	}
 	var transaction = storage.transaction('settings', 'readwrite');
 	var settingsStore = transaction.objectStore('settings');
-	settingsStore.add({id: key, value: value});
+	settingsStore.put({id: key, value: value});
 }
 
 
@@ -121,7 +121,6 @@ function Connection(socket_url) {
 	};
 
 	this.send = function(data) {
-		console.log("send", data);
 		conn.send(data);
 	};
 
@@ -144,6 +143,12 @@ function Api(socket_url) {
 
 	var pingTimer;
 	var pongReceived = false;
+	var oldStatus = 'disconnected';
+
+	var signals = {
+		connected: new Signal(),
+		disconnected: new Signal(),
+	};
 
 	function checkPong() {
 		if (pongReceived) {
@@ -189,13 +194,23 @@ function Api(socket_url) {
 	});
 
 	this.connection.signals.statusChanged.connect(function(status) {
-		console.log(status);
 		if (status === 'connected' && pingTimer === undefined) {
 			self.sendCommand(COMMAND_PING);
 			pingTimer = setTimeout(checkPong, 1000);
 		}
 		if (status !== 'connected' && pingTimer !== undefined) {
 			clearTimeout(pingTimer);
+			pingTimer = undefined;
+		}
+
+
+		if (status === 'connected' && oldStatus !== 'connected') {
+			oldStatus = 'connected';
+			signals.connected.send();
+		}
+		else if (status !== 'connected' && oldStatus === 'connected') {
+			oldStatus = 'disconnected';
+			signals.disconnected.send();
 		}
 	});
 
@@ -209,6 +224,8 @@ function Api(socket_url) {
 	});
 
 	this.connection.connect();
+
+	this.signals = signals;
 }
 
 
@@ -236,6 +253,16 @@ function onPlaylistClick(e) {
 }
 
 
+function onDisconnectClicked(event) {
+	updateSettings('address', '');
+	if (api !== undefined) {
+		api.connection.close();
+		api = undefined;
+	}
+	document.body.className = 'login';
+}
+
+
 function onClick(e) {
 	if (e.which !== 1) {
 		return;
@@ -245,12 +272,7 @@ function onClick(e) {
 		onPlaylistClick(e);
 	}
 	if (_.closest(target, '.disconnect') !== null) {
-		updateSettings('address', undefined);
-		if (api !== undefined) {
-			api.connection.close();
-			api = undefined;
-		}
-		document.body.className = 'login';
+		onDisconnectClicked(e);
 	}
 }
 
@@ -278,6 +300,13 @@ function startApp() {
 	}
 	document.body.className = 'connecting';
 	api = new Api(wsAddress);
+
+	api.signals.connected.connect(function() {
+		document.body.className = 'player';
+	});
+	api.signals.disconnected.connect(function() {
+		document.body.className = 'connecting';
+	});
 }
 
 document.getElementById('page_login').setAttribute('action', window.location);

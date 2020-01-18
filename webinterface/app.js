@@ -6,10 +6,37 @@ if (window.indexedDB === undefined) {
 }
 
 
+var wsAddress = _.getQueryParameters().device;
+var storage;
+var api;
+
+
 var COMMAND_PING = 0;
 var COMMAND_SET_PLAYLIST_ITEM = 1;
 
 var RESPONSE_PONG = 0;
+
+
+function getSettings(key, onSuccess) {
+	if (storage === undefined) {
+		onSuccess(undefined);
+	}
+	var transaction = storage.transaction('settings', 'readonly');
+	var settingsStore = transaction.objectStore('settings');
+	var req = settingsStore.get(key);
+	req.onsuccess = function(event) {
+		onSuccess(event.target.result.value);
+	};
+}
+
+function updateSettings(key, value) {
+	if (storage === undefined) {
+		return;
+	}
+	var transaction = storage.transaction('settings', 'readwrite');
+	var settingsStore = transaction.objectStore('settings');
+	settingsStore.add({id: key, value: value});
+}
 
 
 function Signal() {
@@ -210,8 +237,17 @@ function onClick(e) {
 	if (e.which !== 1) {
 		return;
 	}
-	if (e.target.closest('.playlist') !== null) {
+	var target = e.target;
+	if (_.closest(target, '.playlist') !== null) {
 		onPlaylistClick(e);
+	}
+	if (_.closest(target, '.disconnect') !== null) {
+		updateSettings('address', undefined);
+		if (api !== undefined) {
+			api.close();
+			api = undefined;
+		}
+		document.body.className = 'login';
 	}
 }
 
@@ -225,8 +261,6 @@ if (window.location.protocol === 'https:' && 'serviceWorker' in navigator) {
 		.then(function(reg) { reg.update(); });
 }
 
-var wsAddress = _.getQueryParameters().device;
-var storage;
 
 
 function startApp() {
@@ -246,28 +280,6 @@ function startApp() {
 }
 
 document.getElementById('page_login').setAttribute('action', window.location);
-
-
-function getSettings(key, onSuccess) {
-	if (storage === undefined) {
-		onSuccess(undefined);
-	}
-	var transaction = storage.transaction('settings', 'readonly');
-	var settingsStore = transaction.objectStore('settings');
-	var req = settingsStore.get(key);
-	req.onsuccess = function(event) {
-		onSuccess(event.target.result.value);
-	};
-}
-
-function updateSettings(key, value) {
-	if (storage === undefined) {
-		return;
-	}
-	var transaction = storage.transaction('settings', 'readwrite');
-	var settingsStore = transaction.objectStore('settings');
-	settingsStore.add({id: key, value: value});
-}
 
 
 

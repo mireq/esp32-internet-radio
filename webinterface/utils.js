@@ -43,9 +43,18 @@ function getQueryParameters() {
 }
 
 
+function closest(target, selector) {
+	if (target.matches(selector)) {
+		return target;
+	}
+	return target.closest(selector);
+}
+
+
 window._ = {
 	decodeURLParameters: decodeURLParameters,
-	getQueryParameters: getQueryParameters
+	getQueryParameters: getQueryParameters,
+	closest: closest
 };
 
 }(window));

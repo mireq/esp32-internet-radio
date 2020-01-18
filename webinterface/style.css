@@ -114,3 +114,14 @@ button {
 	outline: none;
 	cursor: pointer;
 }
+
+button.disconnect {
+	width: auto;
+	position: absolute;
+	right: 24px;
+	top: 24px;
+	background: #3b3633;
+	font-size: 12px;
+	text-transform: uppercase;
+	padding: 6px 12px;
+}

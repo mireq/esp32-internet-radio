@@ -33,6 +33,7 @@
 #define LWIP_LWIPOPTS_H
 
 #include "arch/cc.h"
+#include "sdkconfig.h"
 
 #define LWIP_IPV4          1
 #define LWIP_IPV6          1
@@ -74,10 +75,10 @@
 
 /*#define SIO_DEBUG		LWIP_DBG_ON*/
 
-#define TCPIP_MBOX_SIZE						8
-#define DEFAULT_TCP_RECVMBOX_SIZE           4
-#define DEFAULT_UDP_RECVMBOX_SIZE           4
-#define DEFAULT_ACCEPTMBOX_SIZE         4
+#define TCPIP_MBOX_SIZE						CONFIG_LWIP_TCPIP_RECVMBOX_SIZE
+#define DEFAULT_TCP_RECVMBOX_SIZE           CONFIG_LWIP_TCP_RECVMBOX_SIZE
+#define DEFAULT_UDP_RECVMBOX_SIZE           CONFIG_LWIP_UDP_RECVMBOX_SIZE
+#define DEFAULT_ACCEPTMBOX_SIZE         6
 
 extern unsigned char debug_flags;
 #define LWIP_DBG_TYPES_ON debug_flags
@@ -108,16 +109,16 @@ a lot of data that needs to be copied, this should be set high. */
 #define MEMP_NUM_PBUF           16
 /* MEMP_NUM_RAW_PCB: the number of UDP protocol control blocks. One
    per active RAW "connection". */
-#define MEMP_NUM_RAW_PCB        3
+#define MEMP_NUM_RAW_PCB        CONFIG_LWIP_MAX_RAW_PCBS
 /* MEMP_NUM_UDP_PCB: the number of UDP protocol control blocks. One
    per active UDP "connection". */
-#define MEMP_NUM_UDP_PCB        6
+#define MEMP_NUM_UDP_PCB        CONFIG_LWIP_MAX_UDP_PCBS
 /* MEMP_NUM_TCP_PCB: the number of simulatenously active TCP
    connections. */
-#define MEMP_NUM_TCP_PCB        5
+#define MEMP_NUM_TCP_PCB        CONFIG_LWIP_MAX_ACTIVE_TCP
 /* MEMP_NUM_TCP_PCB_LISTEN: the number of listening TCP
    connections. */
-#define MEMP_NUM_TCP_PCB_LISTEN 8
+#define MEMP_NUM_TCP_PCB_LISTEN CONFIG_LWIP_MAX_LISTENING_TCP
 /* MEMP_NUM_TCP_SEG: the number of simultaneously queued TCP
    segments. */
 #define MEMP_NUM_TCP_SEG        16
@@ -130,7 +131,7 @@ a lot of data that needs to be copied, this should be set high. */
 /* MEMP_NUM_NETBUF: the number of struct netbufs. */
 #define MEMP_NUM_NETBUF         2
 /* MEMP_NUM_NETCONN: the number of struct netconns. */
-#define MEMP_NUM_NETCONN        10
+#define MEMP_NUM_NETCONN        CONFIG_LWIP_MAX_SOCKETS
 /* MEMP_NUM_TCPIP_MSG_*: the number of struct tcpip_msg, which is used
    for sequential API communication and incoming packets. Used in
    src/api/tcpip.c. */
@@ -166,13 +167,13 @@ a lot of data that needs to be copied, this should be set high. */
 
 /* Controls if TCP should queue segments that arrive out of
    order. Define to 0 if your device is low on memory. */
-#define TCP_QUEUE_OOSEQ         1
+#define TCP_QUEUE_OOSEQ         CONFIG_LWIP_TCP_QUEUE_OOSEQ
 
 /* TCP Maximum segment size. */
-#define TCP_MSS                 1024
+#define TCP_MSS                 CONFIG_LWIP_TCP_MSS
 
 /* TCP sender buffer space (bytes). */
-#define TCP_SND_BUF             2048
+#define TCP_SND_BUF             (4 * TCP_MSS)
 
 /* TCP sender buffer space (pbufs). This must be at least = 2 *
    TCP_SND_BUF/TCP_MSS for things to work. */
@@ -190,7 +191,7 @@ a lot of data that needs to be copied, this should be set high. */
 #define TCP_MAXRTX              12
 
 /* Maximum number of retransmissions of SYN segments. */
-#define TCP_SYNMAXRTX           4
+#define TCP_SYNMAXRTX           CONFIG_LWIP_TCP_SYNMAXRTX
 
 /* ---------- ARP options ---------- */
 #define LWIP_ARP                1
@@ -206,10 +207,10 @@ a lot of data that needs to be copied, this should be set high. */
 
 /* IP reassembly and segmentation.These are orthogonal even
  * if they both deal with IP fragments */
-#define IP_REASSEMBLY           1
+#define IP_REASSEMBLY           CONFIG_LWIP_IP_REASSEMBLY
 #define IP_REASS_MAX_PBUFS      10
 #define MEMP_NUM_REASSDATA      10
-#define IP_FRAG                 1
+#define IP_FRAG                 CONFIG_LWIP_IP_FRAG
 #define IPV6_FRAG_COPYHEADER    1
 
 #define LWIP_IGMP               1
@@ -354,5 +355,9 @@ extern void sntp_set_system_time(uint32_t sec);
 #define MAXSECRETLEN    256     /* max length of password or secret */
 
 #endif /* PPP_SUPPORT > 0 */
+
+
+#define LWIP_FREERTOS_CHECK_CORE_LOCKING 1
+#define LWIP_TCPIP_CORE_LOCKING 1
 
 #endif /* LWIP_LWIPOPTS_H */

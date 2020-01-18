@@ -101,6 +101,8 @@ include_directories(
 	"${CMAKE_CURRENT_SOURCE_DIR}/../freertos/src/FreeRTOS_Posix/FreeRTOS_Kernel/include"
 	"${CMAKE_CURRENT_SOURCE_DIR}/../freertos/src/FreeRTOS_Posix/FreeRTOS_Kernel/portable/GCC/Posix"
 	"${CMAKE_CURRENT_SOURCE_DIR}/../include"
+	"${CMAKE_CURRENT_SOURCE_DIR}/../../build/config"
+	"${CMAKE_CURRENT_SOURCE_DIR}/extra"
 	"${CMAKE_CURRENT_SOURCE_DIR}/src/src/include"
 	"${CMAKE_CURRENT_SOURCE_DIR}/contrib/ports/freertos/include"
 	"${CMAKE_CURRENT_SOURCE_DIR}/contrib/ports/unix/port/include"

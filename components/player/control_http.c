@@ -75,23 +75,23 @@ static void home_http_handler(http_request_t *request) {
 
 
 static esp_err_t receive_websocket_frame(http_request_t *request, websocket_frame_t *frame) {
-	uint16_t header;
+	uint8_t header[2];
 	char mask[] = {0, 0, 0, 0};
 	ssize_t received;
-	received = recv(request->client_socket, &header, sizeof(header), MSG_WAITALL);
+	received = recv(request->client_socket, header, sizeof(header), MSG_WAITALL);
 	if (received == -1) {
 		return ESP_FAIL;
 	}
 	bool has_mask = false;
-	if (header & 0x80) {
+	if (header[0] & 0x80) {
 		has_mask = true;
 	}
-	uint8_t opcode = header & 0x0f;
+	uint8_t opcode = header[0] & 0x0f;
 	if (opcode == 0x08) { // Final frame
 		return ESP_FAIL;
 	}
 
-	frame->size = (header >> 8) & 0x7f;
+	frame->size = header[1] & 0x7f;
 
 	// Message too long
 	if (frame->size > MAX_WS_FRAME_SIZE) {

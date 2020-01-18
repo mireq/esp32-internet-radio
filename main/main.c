@@ -8,8 +8,8 @@ void app_main(void)
 {
 	init_nvs();
 	init_event_loop();
-	init_tasks();
 	init_player();
+	init_tasks();
 	init_network();
 #if CONFIG_HTTP_CONTROL
 	init_http_control();

@@ -142,7 +142,9 @@ ssize_t recv_noblock(int socket, char *buf, size_t size, SemaphoreHandle_t wait_
 		received = recv(socket, buf, size, MSG_DONTWAIT);
 		if (received == -1) {
 			if (errno == EAGAIN) {
-				xSemaphoreTake(wait_data_semaphore, 1);
+				if (xSemaphoreTake(wait_data_semaphore, 1) == pdTRUE) {
+					break;
+				}
 			}
 			else {
 				break;

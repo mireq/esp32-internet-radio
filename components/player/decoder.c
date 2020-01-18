@@ -25,7 +25,6 @@ static esp_err_t decoder_mpeg_init(decoder_t *decoder, source_t *source) {
 }
 
 
-/*
 static int32_t decoder_mpeg_scale(mad_fixed_t sample) {
 	int32_t output = sample << (sizeof(int32_t) * 8 - MAD_F_FRACBITS - 1);
 	if (sample < 0) {
@@ -33,7 +32,6 @@ static int32_t decoder_mpeg_scale(mad_fixed_t sample) {
 	}
 	return output;
 }
-*/
 
 
 static void decoder_mpeg_prepare_audio(decoder_t *decoder, decoder_pcm_data_t *pcm_data) {
@@ -49,13 +47,7 @@ static void decoder_mpeg_prepare_audio(decoder_t *decoder, decoder_pcm_data_t *p
 		else {
 			sample = *left_ch++;
 		}
-		pcm_data->data[i] = sample;
-		/*
-		sample = decoder_mpeg_scale(*right_ch++);
-		data[i << 1] = sample;
-		sample = decoder_mpeg_scale(*left_ch++);
-		data[(i << 1) + 1] = sample;
-		*/
+		pcm_data->data[i] = decoder_mpeg_scale(sample);
 	}
 	pcm_data->length = pcm->length;
 }

@@ -1,4 +1,9 @@
 (function() {
+'use strict';
+
+if (window.indexedDB === undefined) {
+	alert("Browser does not suport indexedDB");
+}
 
 
 var COMMAND_PING = 0;
@@ -174,7 +179,7 @@ function Api(socket_url) {
 }
 
 
-var api = new Api('ws://10.0.0.2:80');
+//var api = new Api('wss://10.0.0.2:80');
 
 
 function onPlaylistClick(e) {
@@ -198,7 +203,6 @@ function onPlaylistClick(e) {
 	bufferView.set(textArray, uriArray.byteLength + 1);
 
 	api.sendCommand(COMMAND_SET_PLAYLIST_ITEM, buf);
-	//api.sendCommand(COMMAND_PING, new ArrayBuffer(1));
 }
 
 
@@ -213,6 +217,78 @@ function onClick(e) {
 
 
 document.body.addEventListener('click', onClick);
+
+
+if (window.location.protocol === 'https:' && 'serviceWorker' in navigator) {
+	navigator.serviceWorker
+		.register('/sw.js')
+		.then(function(reg) { reg.update(); });
+}
+
+var wsAddress = _.getQueryParameters().device;
+var storage;
+
+
+function startApp() {
+	if (!wsAddress) {
+		return;
+	}
+	else {
+		updateSettings('address', wsAddress);
+	}
+	if (window.location.protocol === 'https:') {
+		wsAddress = 'wss://' + wsAddress;
+	}
+	else {
+		wsAddress = 'ws://' + wsAddress;
+	}
+	document.body.className = 'connecting';
+}
+
+document.getElementById('page_login').setAttribute('action', window.location);
+
+
+function getSettings(key, onSuccess) {
+	if (storage === undefined) {
+		onSuccess(undefined);
+	}
+	var transaction = storage.transaction('settings', 'readonly');
+	var settingsStore = transaction.objectStore('settings');
+	var req = settingsStore.get(key);
+	req.onsuccess = function(event) {
+		onSuccess(event.target.result.value);
+	};
+}
+
+function updateSettings(key, value) {
+	if (storage === undefined) {
+		return;
+	}
+	var transaction = storage.transaction('settings', 'readwrite');
+	var settingsStore = transaction.objectStore('settings');
+	settingsStore.add({id: key, value: value});
+}
+
+
+
+(function() {
+	var dbRequest = indexedDB.open('esp32-radio', 1);
+	dbRequest.onupgradeneeded = function(event) {
+		var db = event.target.result;
+		var store = db.createObjectStore('settings', {keyPath: 'id'});
+	};
+	dbRequest.onsuccess = function(event) {
+		storage = event.target.result;
+		getSettings('address', function(value) {
+			wsAddress = value;
+			startApp();
+		});
+	};
+	dbRequest.onerror = function(event) {
+		startApp();
+	};
+}());
+
 
 
 }());

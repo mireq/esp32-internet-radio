@@ -1,0 +1,20 @@
+{
+	"name": "ESP32 Radio",
+	"short_name": "ESP32 Radio",
+	"start_url": "/index.html",
+	"display": "fullscreen",
+	"background_color": "#f74860",
+	"theme_color": "#263150",
+	"icons": [
+		{
+			"src": "/img/bitmap/icon_192.png",
+			"sizes": "192x192",
+			"type": "image/png"
+		},
+		{
+			"src": "/img/bitmap/icon_512.png",
+			"sizes": "512x512",
+			"type": "image/png"
+		}
+	]
+}

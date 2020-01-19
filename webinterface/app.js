@@ -311,7 +311,11 @@ function initSliders() {
 		var input;
 		opts.start = 0;
 		opts.range = {min: 0, max: 100};
-		opts.pips = {mode: 'count', values: 5};
+		opts.pips = {
+			mode: 'count',
+			values: 5,
+			density: 5
+		};
 		noUiSlider.create(element, opts);
 
 		if (element.dataset.input !== undefined) {

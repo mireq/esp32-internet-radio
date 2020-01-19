@@ -235,6 +235,8 @@ static source_error_t source_http_init(source_t *source, const uri_t *uri) {
 	}
 	freeaddrinfo(res);
 
+	xSemaphoreTake(source->wait_data_semaphore, 0);
+
 	const char template[] = "GET %s HTTP/1.0\r\nHost: %s\r\nUser-Agent: ESP32\r\nAccept: */*\r\nIcy-MetaData: 1\r\n\r\n";
 	char request[MAX_URI_SIZE + sizeof(template) + 1];
 	bzero(request, sizeof(request));
@@ -258,6 +260,9 @@ static source_error_t source_http_init(source_t *source, const uri_t *uri) {
 	char c;
 	for (size_t i = 0; i < MAX_HTTP_HEADER_SIZE; ++i) {
 		ssize_t received = recv_noblock(sock, &c, sizeof(c), source->wait_data_semaphore);
+		if (received == -1) {
+			break;
+		}
 		http_header_parser_feed(&parser, c);
 		if (parser.header_finished || parser.header_error) {
 			break;

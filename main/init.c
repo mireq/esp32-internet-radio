@@ -187,7 +187,7 @@ static const task_init_instruction_t task_init_instructions[] = {
 		.task = read_task,
 		.task_name = "read",
 		.stack_depth = configMINIMAL_STACK_SIZE + 4096,
-		.priority = tskIDLE_PRIORITY + 1,
+		.priority = tskIDLE_PRIORITY + 2,
 	},
 	{
 		// Player stats

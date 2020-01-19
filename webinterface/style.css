@@ -27,6 +27,10 @@ h1 {
 	text-shadow: 0px -1px 0px #000;
 }
 
+a {
+	color: #f74860;
+}
+
 #page_login, #page_connecting, #page_player {
 	display: none;
 	padding: 24px;
@@ -42,6 +46,10 @@ body.connecting #page_connecting {
 
 body.player #page_player {
 	display: block;
+}
+
+#page_player {
+	padding-top: 48px;
 }
 
 #page_login, #page_connecting {
@@ -118,12 +126,14 @@ button {
 button.disconnect {
 	width: auto;
 	position: absolute;
-	right: 24px;
-	top: 24px;
-	background: #3b3633;
-	font-size: 12px;
+	left: 12px;
+	top: 6px;
+	font-size: 10px;
 	text-transform: uppercase;
 	padding: 6px 12px;
+	background: transparent;
+	box-shadow: none;
+	opacity: .5;
 }
 
 .spinner {
@@ -165,4 +175,55 @@ button.disconnect {
 	20% {
 		transform: scaleY(1.0);
 	}
+}
+
+#page_player h2 {
+	font-size: 20px;
+	font-weight: 300;
+	text-shadow: 0px -1px 0px #000;
+	background: #201c1a;
+	padding: 12px 24px;
+	margin: 24px -24px;
+}
+
+#page_player h2:first-of-type {
+	padding: 36px 24px 12px 24px;
+	margin: -48px -24px 24px -24px;
+}
+
+#page_player .logo {
+	position: absolute;
+	width: 64px;
+	height: 64px;
+	top: 4px;
+	right: 12px;
+	opacity: .5;
+}
+
+.playlist {
+	list-style: none;
+	margin: -24px -24px 24px -24px;
+	padding: 0;
+}
+
+.playlist a {
+	display: block;
+	text-decoration: none;
+	padding: 12px 24px;
+	border-top: 1px solid #3b3633;
+	font-weight: 300;
+	color: #f4f0d8;
+}
+
+.playlist li:first-child a {
+	border: none;
+}
+
+.playlist a:hover, .playlist a:focus {
+	background: #f74860;
+}
+
+.playlist li {
+	padding: 0;
+	margin: 0;
 }

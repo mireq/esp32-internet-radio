@@ -227,3 +227,7 @@ button.disconnect {
 	padding: 0;
 	margin: 0;
 }
+
+.noUi-value {
+	cursor: pointer;
+}

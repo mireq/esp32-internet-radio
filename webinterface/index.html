@@ -5,6 +5,7 @@
 	<meta charset="utf-8" />
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<link rel="stylesheet" href="./style.css" type="text/css" />
+	<link rel="stylesheet" href="./vendor/noUiSlider/distribute/nouislider.min.css" type="text/css" />
 	<link href="https://fonts.googleapis.com/css?family=Ubuntu:300,300i,400,400i,500,500i,700,700i&display=swap&subset=latin-ext" rel="stylesheet">
 	<link rel="manifest" href="./manifest.json">
 </head>
@@ -46,8 +47,13 @@
 		<li><a href="http://ice1.somafm.com/bootliquor-128-mp3">SomaFM / Boot Liquor</a></li>
 	</ul>
 	<h2>Control</h2>
+	<div class="volume-control">
+		<input type="number" name="volume" id="input_volume" min="0" max="65535" value="0" />
+		<div class="slider" data-input="input_volume"></div>
+	</div>
 </div>
 
+<script src="./vendor/noUiSlider/distribute/nouislider.min.js" charset="utf-8"></script>
 <script src="./utils.js" charset="utf-8"></script>
 <script src="./app.js" charset="utf-8"></script>
 </body>

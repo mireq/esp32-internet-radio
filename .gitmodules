@@ -10,3 +10,6 @@
 [submodule "simulator/lwip/contrib"]
 	path = simulator/lwip/contrib
 	url = https://git.savannah.nongnu.org/git/lwip/lwip-contrib.git
+[submodule "webinterface/vendor/noUiSlider"]
+	path = webinterface/vendor/noUiSlider
+	url = https://github.com/leongersen/noUiSlider

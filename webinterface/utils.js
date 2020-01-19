@@ -7,6 +7,11 @@ function forEach(collection, fn) {
 }
 
 
+function toArray(collection) {
+	return Array.prototype.slice.call(collection, 0);
+}
+
+
 function decodeURLParameters(data) {
 	var parameters = [];
 	if (data === '') {
@@ -51,10 +56,36 @@ function closest(target, selector) {
 }
 
 
+function debounce(fn, delay) {
+	var timer = null;
+	var context, args;
+	var closure = function () {
+		context = this;
+		args = arguments;
+		if (timer === null) {
+			timer = setTimeout(function () {
+				fn.apply(context, args);
+				timer = null;
+			}, delay);
+		}
+	};
+	var instant = function() {
+		var context = this, args = arguments;
+		clearTimeout(timer);
+		fn.apply(context, args);
+	};
+	closure.instant = instant;
+	return closure;
+}
+
+
 window._ = {
 	decodeURLParameters: decodeURLParameters,
 	getQueryParameters: getQueryParameters,
-	closest: closest
+	closest: closest,
+	toArray: toArray,
+	forEach: forEach,
+	debounce: debounce
 };
 
 }(window));

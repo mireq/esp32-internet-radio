@@ -2,6 +2,7 @@
 
 #include "esp_event.h"
 #include "playlist.h"
+#include "player.h"
 
 
 ESP_EVENT_DECLARE_BASE(NETWORK_EVENT);
@@ -24,15 +25,10 @@ typedef enum {
 
 
 typedef enum {
-	CONTROL_COMMAND_STOP,
-	CONTROL_COMMAND_START,
-	CONTROL_COMMAND_QUIT,
-	CONTROL_COMMAND_VOLUME_UP,
-	CONTROL_COMMAND_VOLUME_DOWN,
-	CONTROL_COMMAND_VOLUME_SET,
-	CONTROL_COMMAND_SET_STREAM_URL,
+	CONTROL_COMMAND_SET_VOLUME,
 } control_command_t;
 
 
 extern esp_event_loop_handle_t player_event_loop;
 extern playlist_t playlist;
+extern player_state_t player_state;

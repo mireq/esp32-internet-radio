@@ -60,7 +60,7 @@ static ssize_t recv_noblock(int socket, void *buf, size_t size, SemaphoreHandle_
 	while (received == -1) {
 		received = recv(socket, buf + suc_received, size - suc_received, MSG_DONTWAIT);
 		if (received == -1) {
-			if (errno == EAGAIN) {
+			if (errno == EAGAIN || errno == EWOULDBLOCK) {
 				if (xSemaphoreTake(wait_data_semaphore, 1) == pdTRUE) {
 					return -1;
 				}
@@ -77,6 +77,32 @@ static ssize_t recv_noblock(int socket, void *buf, size_t size, SemaphoreHandle_
 		}
 	}
 	return suc_received;
+}
+
+
+static ssize_t send_noblock(int socket, void *buf, size_t size, SemaphoreHandle_t wait_data_semaphore) {
+	ssize_t sent = -1;
+	size_t suc_sent = 0;
+	while (sent == -1) {
+		sent = send(socket, buf + suc_sent, size - suc_sent, MSG_DONTWAIT);
+		if (sent == -1) {
+			if (errno == EAGAIN || errno == EWOULDBLOCK) {
+				if (xSemaphoreTake(wait_data_semaphore, 1) == pdTRUE) {
+					return -1;
+				}
+			}
+			else {
+				return -1;
+			}
+		}
+		else {
+			suc_sent += sent;
+			if (suc_sent >= size) {
+				break;
+			}
+		}
+	}
+	return suc_sent;
 }
 
 
@@ -171,7 +197,7 @@ static esp_err_t send_websocket_frame(http_request_t *request, const websocket_f
 	buf[1] = frame->size;
 	memcpy(buf + 2, frame->data, frame->size);
 	ssize_t processed;
-	processed = send(request->client_socket, buf, frame->size + 2, 0);
+	processed = send_noblock(request->client_socket, buf, frame->size + 2, request->wait_data_semaphore);
 	if (processed < 0) {
 		return ESP_FAIL;
 	}
@@ -208,12 +234,21 @@ static esp_err_t handle_set_playlist_item(http_request_t *request, command_messa
 }
 
 
+static esp_err_t handle_set_volume(http_request_t *request, command_message_t *message) {
+	uint16_t volume = ((uint16_t *)message->data)[0];
+	esp_event_post_to(player_event_loop, CONTROL_COMMAND, CONTROL_COMMAND_SET_VOLUME, &volume, sizeof(volume), portMAX_DELAY);
+	return ESP_OK;
+}
+
+
 static esp_err_t process_websocket_message(http_request_t *request, command_message_t *message) {
 	switch (message->command) {
 		case WS_COMMAND_PING:
 			return handle_ping(request, message);
 		case WS_COMMAND_SET_PLAYLIST_ITEM:
 			return handle_set_playlist_item(request, message);
+		case WS_COMMAND_SET_VOLUME:
+			return handle_set_volume(request, message);
 		default:
 			return ESP_FAIL;
 	}
@@ -308,6 +343,7 @@ static void *on_http_event(http_event_type_t type, void *data) {
 			return &request;
 		case HTTP_REQUEST:
 			xSemaphoreTake(request.wait_data_semaphore, 0);
+			fcntl(request.client_socket, F_SETFL, O_NONBLOCK);
 			on_http_request((http_request_t *)data);
 			break;
 		case HTTP_CLOSE:

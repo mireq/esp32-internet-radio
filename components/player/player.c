@@ -24,6 +24,7 @@ static const char *TAG = "player";
 
 
 playlist_t playlist = { .callback = NULL };
+player_state_t player_state = { .volume = 0x1000 };
 static source_t source = { .type = SOURCE_TYPE_UNKNOWN, .semaphore = NULL };
 static decoder_t decoder;
 static SemaphoreHandle_t has_source_semaphore = NULL;
@@ -74,15 +75,44 @@ static void on_playback_event(void* arg, esp_event_base_t event_base, int32_t ev
 }
 
 
+static void on_control_command(void* arg, esp_event_base_t event_base, int32_t event_id, void* event_data) {
+	switch (event_id) {
+		case CONTROL_COMMAND_SET_VOLUME:
+			{
+				uint16_t volume = ((uint16_t *)event_data)[0];
+				player_state.volume = volume;
+			}
+			break;
+		default:
+			break;
+	}
+}
+
+
 static void on_playlist_item_changed(playlist_t *playlist, playlist_item_t *item) {
 	esp_event_post_to(player_event_loop, PLAYBACK_EVENT, PLAYBACK_EVENT_PLAYLIST_ITEM_CHANGE, item, sizeof(playlist_item_t), portMAX_DELAY);
 }
 
 
 /* Private functions */
+static void adjust_volume(decoder_pcm_data_t *pcm) {
+	uint16_t volume = player_state.volume;
+	if (volume == 0xffff) {
+		return;
+	}
+	int64_t sample;
+	for (size_t i = 0; i < pcm->length * 2; ++i) {
+		sample = (uint64_t)pcm->data[i] * volume;
+		bool negative = sample < 0;
+		pcm->data[i] = sample >> (sizeof(volume) * 8);
+		if (negative) {
+			pcm->data[i] |= 1L << (sizeof(int32_t)-1);
+		}
+	}
+}
 
 
-void read_and_play_audio(void) {
+static void read_and_play_audio(void) {
 	for (;;) {
 		if (buffer_read(&network_buffer, audio_process_buffer, sizeof(audio_process_buffer)) == ESP_OK) {
 			decoder_feed(&decoder, audio_process_buffer, sizeof(audio_process_buffer));
@@ -93,6 +123,7 @@ void read_and_play_audio(void) {
 					return;
 				}
 				if (pcm->length > 0) {
+					adjust_volume(pcm);
 					audio_output_write(&audio_output, pcm->data, pcm->length);
 				}
 				else {
@@ -227,6 +258,12 @@ void init_player(void) {
 		abort();
 	}
 
+	player_state.access_mutex = xSemaphoreCreateMutex();
+	if (player_state.access_mutex == NULL) {
+		ESP_LOGE(TAG, "Mutex player_state.access_mutex not crated.");
+		abort();
+	}
+
 	char *stream_buffer = heap_caps_malloc(STREAM_BUFFER_SIZE, MALLOC_CAP_DEFAULT | MALLOC_CAP_SPIRAM);
 	if (!stream_buffer) {
 		ESP_LOGE(TAG, "stream buffer not allocated");
@@ -241,4 +278,5 @@ void init_player(void) {
 	playlist_init(&playlist, on_playlist_item_changed, NULL);
 	esp_event_handler_register_with(player_event_loop, NETWORK_EVENT, ESP_EVENT_ANY_ID, on_network_event, NULL);
 	esp_event_handler_register_with(player_event_loop, PLAYBACK_EVENT, ESP_EVENT_ANY_ID, on_playback_event, NULL);
+	esp_event_handler_register_with(player_event_loop, CONTROL_COMMAND, ESP_EVENT_ANY_ID, on_control_command, NULL);
 }

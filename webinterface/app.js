@@ -13,7 +13,7 @@ var api;
 
 var COMMAND_PING = 0;
 var COMMAND_SET_PLAYLIST_ITEM = 1;
-var COMMAND_VOLUME = 2;
+var COMMAND_SET_VOLUME = 2;
 
 var RESPONSE_PONG = 0;
 
@@ -254,6 +254,13 @@ function Api(socket_url) {
 		this.sendCommand(COMMAND_SET_PLAYLIST_ITEM, buf);
 	};
 
+	this.setVolume = function(volume) {
+		var buf = new ArrayBuffer(2);
+		var volumeView = new Uint16Array(buf, 0, 1);
+		volumeView[0] = volume;
+		this.sendCommand(COMMAND_SET_VOLUME, buf);
+	};
+
 	this.connection.connect();
 
 	this.signals = signals;
@@ -376,6 +383,12 @@ function startApp() {
 	});
 	api.signals.disconnected.connect(function() {
 		document.body.className = 'connecting';
+	});
+	var volumeInput = document.getElementById('input_volume');
+	volumeInput.addEventListener('change', function() {
+		if (api !== undefined && api.connection.status === 'connected') {
+			api.setVolume(volumeInput.value);
+		}
 	});
 }
 

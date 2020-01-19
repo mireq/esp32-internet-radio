@@ -70,7 +70,6 @@ static void decoder_mpeg_feed(decoder_t *decoder, char *buf, ssize_t size) {
 
 
 static decoder_pcm_data_t *decoder_mpeg_decode(decoder_t *decoder) {
-	esp_err_t status = ESP_OK;
 	decoder_data_mpeg_t *mpeg = &decoder->data.mpeg;
 	const unsigned char *r_buffer = mpeg->buf;
 	decoder->pcm.length = 0;
@@ -83,16 +82,13 @@ static decoder_pcm_data_t *decoder_mpeg_decode(decoder_t *decoder) {
 				break;
 			}
 			else if (!MAD_RECOVERABLE(mpeg->mad_stream.error)) {
-				status = ESP_FAIL;
 				ESP_LOGW(TAG, "mad_error %s", mad_stream_errorstr(&mpeg->mad_stream));
 				out = NULL;
 				break;
 			}
 		}
 		else {
-			taskYIELD();
 			mad_synth_frame(&mpeg->mad_synth, &mpeg->mad_frame);
-			taskYIELD();
 			decoder_mpeg_prepare_audio(decoder, &decoder->pcm);
 			if (mpeg->mad_stream.next_frame) {
 				r_buffer = mpeg->mad_stream.next_frame;

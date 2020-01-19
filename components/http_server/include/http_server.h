@@ -5,12 +5,12 @@
 
 
 struct http_server_t;
-struct http_request_t;
 
 
 typedef enum {
 	HTTP_OPEN,
 	HTTP_REQUEST,
+	HTTP_HEADER,
 	HTTP_CLOSE,
 } http_event_type_t;
 
@@ -32,15 +32,10 @@ typedef struct http_open_t {
 } http_open_t;
 
 
-typedef struct http_request_t {
-	char query[HTTP_SERVER_QUERY_SIZE];
-	char method[5];
-	char upgrade[20];
-	char host[32];
-	char sec_websocket_key[32];
+typedef struct http_server_context_t {
 	http_server_t *server;
-	int client_socket;
-} http_request_t;
+	void *client_data;
+} http_server_context_t;
 
 
 void http_server_init(http_server_t *server, http_server_callback callback, void *handle);

@@ -1,5 +1,3 @@
-#include <sys/param.h>
-
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -18,52 +16,9 @@
 static const char *TAG = "http_server";
 
 
-typedef struct http_server_context_t {
-	http_server_t *server;
-	void *client_data;
-} http_server_context_t;
-
-
 static void on_http_header_parser_fragment(http_header_parser_t *parser) {
 	http_server_context_t *context = (http_server_context_t *)parser->handle;
-	http_request_t *request = (http_request_t *)context->client_data;
-
-	if (parser->header_finished) {
-	}
-	else if (parser->header_error) {
-		ESP_LOGW(TAG, "http header not parsed");
-	}
-	else if (parser->key_length == -1 && parser->value_length != -1) {
-		ESP_LOGD(TAG, "%s", parser->value);
-		const char *query_pos = strstr(parser->value, " ");
-		if (!query_pos) {
-			ESP_LOGW(TAG, "http header not parsed");
-			parser->header_error = true;
-			return;
-		}
-		query_pos++;
-		const char *version_pos = strstr(query_pos, " ");
-		if (!version_pos) {
-			ESP_LOGW(TAG, "http header not parsed");
-			parser->header_error = true;
-			return;
-		}
-		strncpy(request->method, parser->value, MIN(sizeof(request->method) - 1, query_pos - parser->value - 1));
-		strncpy(request->query, query_pos, MIN(sizeof(request->query) - 1, version_pos - query_pos));
-	}
-	else {
-		ESP_LOGD(TAG, "%s: %s", parser->key, parser->value);
-		for (char *p = parser->key; *p; ++p) *p = tolower(*p);
-		if (strcmp(parser->key, "upgrade") == 0) {
-			strncpy(request->upgrade, parser->value, sizeof(request->upgrade) - 1);
-		}
-		if (strcmp(parser->key, "host") == 0) {
-			strncpy(request->host, parser->value, sizeof(request->host) - 1);
-		}
-		if (strcmp(parser->key, "sec-websocket-key") == 0) {
-			strncpy(request->sec_websocket_key, parser->value, sizeof(request->sec_websocket_key) - 1);
-		}
-	}
+	context->server->callback(HTTP_HEADER, parser);
 }
 
 

@@ -136,7 +136,7 @@ typedef struct http_header_t {
 } http_header_t;
 
 
-ssize_t recv_noblock(int socket, char *buf, size_t size, SemaphoreHandle_t wait_data_semaphore) {
+static ssize_t recv_noblock(int socket, char *buf, size_t size, SemaphoreHandle_t wait_data_semaphore) {
 	ssize_t received = -1;
 	while (received == -1) {
 		received = recv(socket, buf, size, MSG_DONTWAIT);

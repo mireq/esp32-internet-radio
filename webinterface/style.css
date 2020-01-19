@@ -4,6 +4,7 @@
  text: #f4f0d8
  minimal-border: #3b3633
  inside-background: #201c1a
+ control-background: #3b3633
 */
 
 body, html {
@@ -93,7 +94,7 @@ input[type="text"] {
 	margin: 8px 0;
 	width: 100%;
 	margin-bottom: 8px;
-	box-shadow: 0px 1px 0px rgba(255, 255, 255, 0.05), 0px -1px 0px #000;
+	box-shadow: 0px 1px 0px rgba(255, 255, 255, 0.05), 0px -1px 0px rgba(0, 0, 0, 0.5);
 	font-family: 'Ubuntu', sans-serif;
 	font-size: 16px;
 	font-weight: normal;
@@ -228,6 +229,97 @@ button.disconnect {
 	margin: 0;
 }
 
-.noUi-value {
+body .noUi-value {
 	cursor: pointer;
+}
+
+body .noUi-target {
+	height: 6px;
+	border-radius: 3px;
+	background: #302b28;
+	border: none;
+	box-shadow: 0px 1px 0px rgba(255, 255, 255, 0.05), 0px -1px 0px rgba(0, 0, 0, 0.5);
+}
+
+body .noUi-handle {
+	border-radius: 14px;
+	background: #302b28;
+	border: none;
+	box-shadow: 0px -1px 0px rgba(255, 255, 255, 0.2), 0px 1px 0px rgba(0, 0, 0, 0.2);
+}
+
+body .noUi-horizontal .noUi-handle {
+	width: 28px;
+	height: 28px;
+	top: -11px;
+	right: -14px;
+	outline: none;
+}
+
+body .noUi-horizontal .noUi-handle:before {
+	width: 24px;
+	height: 24px;
+	border-radius: 12px;
+	left: 2px;
+	top: 2px;
+	background: #201c1a;
+	border: none;
+}
+
+body .noUi-horizontal .noUi-handle:after {
+	width: 10px;
+	height: 10px;
+	border-radius: 5px;
+	left: 9px;
+	top: 9px;
+	background: #f74860;
+	border: none;
+}
+
+body .noUi-horizontal .noUi-handle.noUi-active:after {
+	background: #f4f0d8;
+}
+
+body .noUi-pips-horizontal {
+	height: 40px;
+	padding: 2px;
+	font-size: 10px;
+}
+
+body .noUi-marker-horizontal.noUi-marker {
+	width: 1px;
+	height: 3px;
+}
+
+body .noUi-marker-horizontal.noUi-marker-large {
+	height: 7px;
+}
+
+body .noUi-marker {
+	background: #f4f0d8;
+	opacity: .25;
+}
+
+.volume-control {
+	background: #3b3633;
+	padding: 32px 32px;
+	position: relative;
+	margin-top: -24px;
+	margin-left: -24px;
+	margin-right: -24px;
+}
+
+.volume-control .volume-symbol-container {
+	position: absolute;
+	height: 18px;
+	left: 32px;
+	right: 32px;
+	top: 12px;
+	opacity: .25;
+}
+
+.volume-control .volume {
+	height: 18px;
+	width: 100%;
+	display: block;
 }

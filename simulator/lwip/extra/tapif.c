@@ -53,6 +53,7 @@
 #include "lwip/snmp.h"
 #include "lwip/pbuf.h"
 #include "lwip/sys.h"
+#include "lwip/tcpip.h"
 #include "lwip/timeouts.h"
 #include "netif/etharp.h"
 #include "lwip/ethip6.h"
@@ -423,7 +424,9 @@ tapif_thread(void *arg)
 
     if(ret == 1) {
       /* Handle incoming packet. */
+      LOCK_TCPIP_CORE();
       tapif_input(netif);
+      UNLOCK_TCPIP_CORE();
     } else if(ret == -1) {
       if (errno != EINTR) { /* Ignore signals */
         perror("tapif_thread: select");

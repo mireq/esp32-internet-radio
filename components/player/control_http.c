@@ -50,7 +50,34 @@ typedef struct http_request_t {
 	char sec_websocket_key[32];
 	http_server_t *server;
 	int client_socket;
+	SemaphoreHandle_t wait_data_semaphore;
 } http_request_t;
+
+
+static ssize_t recv_noblock(int socket, void *buf, size_t size, SemaphoreHandle_t wait_data_semaphore) {
+	ssize_t received = -1;
+	size_t suc_received = 0;
+	while (received == -1) {
+		received = recv(socket, buf + suc_received, size - suc_received, MSG_DONTWAIT);
+		if (received == -1) {
+			if (errno == EAGAIN) {
+				if (xSemaphoreTake(wait_data_semaphore, 1) == pdTRUE) {
+					return -1;
+				}
+			}
+			else {
+				return -1;
+			}
+		}
+		else {
+			suc_received += received;
+			if (suc_received >= size) {
+				break;
+			}
+		}
+	}
+	return suc_received;
+}
 
 
 static const char http_not_found[] = "HTTP/1.1 404 Not Found\r\nConnection: close\r\n\r\n";
@@ -95,7 +122,7 @@ static esp_err_t receive_websocket_frame(http_request_t *request, websocket_fram
 	uint8_t header[2];
 	char mask[] = {0, 0, 0, 0};
 	ssize_t received;
-	received = recv(request->client_socket, header, sizeof(header), MSG_WAITALL);
+	received = recv_noblock(request->client_socket, header, sizeof(header), request->wait_data_semaphore);
 	if (received == -1) {
 		return ESP_FAIL;
 	}
@@ -117,14 +144,14 @@ static esp_err_t receive_websocket_frame(http_request_t *request, websocket_fram
 
 	// Read optional mask
 	if (has_mask) {
-		received = recv(request->client_socket, &mask, sizeof(mask), MSG_WAITALL);
+		received = recv_noblock(request->client_socket, &mask, sizeof(mask), request->wait_data_semaphore);
 		if (received == -1) {
 			return ESP_FAIL;
 		}
 	}
 
 	// Read message
-	received = recv(request->client_socket, frame->data, frame->size, MSG_WAITALL);
+	received = recv_noblock(request->client_socket, frame->data, frame->size, request->wait_data_semaphore);
 	if (received == -1) {
 		return ESP_FAIL;
 	}
@@ -280,10 +307,13 @@ static void *on_http_event(http_event_type_t type, void *data) {
 			bzero(request.sec_websocket_key, sizeof(request.sec_websocket_key));
 			return &request;
 		case HTTP_REQUEST:
+			xSemaphoreTake(request.wait_data_semaphore, 0);
 			on_http_request((http_request_t *)data);
 			break;
 		case HTTP_CLOSE:
-			bzero(&request, sizeof(request));
+			xSemaphoreGive(request.wait_data_semaphore);
+			bzero(&request.server, sizeof(request.server));
+			bzero(&request.client_socket, sizeof(request.client_socket));
 			break;
 		case HTTP_HEADER:
 			on_http_header_parser_fragment((http_header_parser_t *)data);
@@ -300,6 +330,10 @@ static http_server_t server = {
 
 
 void init_http_control(void) {
+	request.wait_data_semaphore = xSemaphoreCreateBinary();
+	if (request.wait_data_semaphore == NULL) {
+		ESP_LOGE(TAG, "wait_data_semaphore not created");
+	}
 	http_server_init(&server, on_http_event, NULL);
 }
 

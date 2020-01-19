@@ -1,16 +1,21 @@
 self.addEventListener('install', function(e) {
- e.waitUntil(
-	 caches.open('esp-radio').then(function(cache) {
-		 return cache.addAll([
-			 '/',
-			 '/index.html',
-			 '/app.js',
-			 '/utils.js',
-			 '/style.css',
-		 ]);
-	 })
- );
+	//self.skipWaiting();
+	e.waitUntil(
+		caches.open('esp-radio').then(function(cache) {
+			return cache.addAll([
+				'/',
+				'/index.html',
+				'/app.js',
+				'/utils.js',
+				'/style.css',
+			]);
+		})
+	);
 });
+
+self.addEventListener('activate', function(e) {
+});
+
 
 /*
 self.addEventListener('fetch', function(e) {

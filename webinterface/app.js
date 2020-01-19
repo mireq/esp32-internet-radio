@@ -88,36 +88,46 @@ function Connection(socket_url) {
 		statusChanged: new Signal()
 	};
 
+	var onOpen = function (event) {
+		signals.open.send();
+		if (self.status != 'connected') {
+			self.status = 'connected';
+			signals.statusChanged.send(self.status);
+		}
+	};
+
+	var onMessage = function (event) {
+		signals.messageReceived.send(event);
+	};
+
+	var onClose = function (event) {
+		if (self.status != 'disconnected') {
+			self.status = 'disconnected';
+			signals.statusChanged.send(self.status);
+		}
+		signals.close.send();
+		self.close();
+	};
+
+	var onError = function (event) {
+		self.close();
+	};
+
 	this.status = 'disconnect';
 
 	this.connect = function() {
 		self.status = 'connecting';
 		signals.statusChanged.send(self.status);
 
+		if (conn !== undefined) {
+			self.close();
+		}
 		conn = new WebSocket(socket_url);
 
-		conn.addEventListener('open', function (event) {
-			signals.open.send();
-			if (self.status != 'connected') {
-				self.status = 'connected';
-				signals.statusChanged.send(self.status);
-			}
-		});
-		conn.addEventListener('message', function (event) {
-			signals.messageReceived.send(event);
-		});
-		conn.addEventListener('close', function (event) {
-			if (self.status != 'disconnected') {
-				self.status = 'disconnected';
-				signals.statusChanged.send(self.status);
-			}
-			signals.close.send();
-			self.close();
-		});
-		conn.addEventListener('error', function (event) {
-			console.log("Error, closing connection", event);
-			self.close();
-		});
+		conn.addEventListener('open', onOpen);
+		conn.addEventListener('message', onMessage);
+		conn.addEventListener('close', onClose);
+		conn.addEventListener('error', onError);
 	};
 
 	this.send = function(data) {
@@ -125,12 +135,20 @@ function Connection(socket_url) {
 	};
 
 	this.close = function() {
-		if (self.status == 'connected' && conn !== undefined) {
-			conn.close();
-			conn = undefined;
+		if (self.status == 'connected') {
 			self.status = 'disconnected';
 			signals.statusChanged.send(self.status);
 			signals.close.send();
+		}
+		if (conn !== undefined) {
+			if (conn.readyState === WebSocket.OPEN) {
+				conn.close();
+			}
+			conn.removeEventListener('open', onOpen);
+			conn.removeEventListener('message', onMessage);
+			conn.removeEventListener('close', onClose);
+			conn.removeEventListener('error', onError);
+			conn = undefined;
 		}
 	};
 
@@ -190,7 +208,7 @@ function Api(socket_url) {
 	};
 
 	this.connection.signals.close.connect(function() {
-		self.connection.connect();
+		setTimeout(function() { self.connection.connect(); }, 100);
 	});
 
 	this.connection.signals.statusChanged.connect(function(status) {
@@ -202,7 +220,6 @@ function Api(socket_url) {
 			clearTimeout(pingTimer);
 			pingTimer = undefined;
 		}
-
 
 		if (status === 'connected' && oldStatus !== 'connected') {
 			oldStatus = 'connected';
@@ -282,7 +299,7 @@ document.body.addEventListener('click', onClick);
 
 if (window.location.protocol === 'https:' && 'serviceWorker' in navigator) {
 	navigator.serviceWorker
-		.register('/sw.js')
+		.register('./sw.js')
 		.then(function(reg) { reg.update(); });
 }
 

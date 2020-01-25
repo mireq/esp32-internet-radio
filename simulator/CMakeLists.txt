@@ -20,6 +20,7 @@ include_directories(
 	"${CMAKE_SOURCE_DIR}/../components/http_header_parser/include/"
 	"${CMAKE_SOURCE_DIR}/../components/http_server/include/"
 	"${CMAKE_SOURCE_DIR}/../components/player/include/"
+	"${CMAKE_SOURCE_DIR}/../components/mad/include/"
 	"${CMAKE_SOURCE_DIR}/../components/"
 	"${CMAKE_SOURCE_DIR}/../main/include/"
 	"$ENV{IDF_PATH}/components/log/include/"

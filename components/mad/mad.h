@@ -24,12 +24,14 @@
 extern "C" {
 # endif
 
+# define FPM_INTEL
+
+
 
 # define SIZEOF_INT 4
 # define SIZEOF_LONG 4
 # define SIZEOF_LONG_LONG 8
 
-#include "config.h"
 
 /* Id: version.h,v 1.26 2004/01/23 09:41:33 rob Exp */
 
@@ -809,6 +811,7 @@ struct mad_frame {
   int options;				/* decoding options (from stream) */
 
   mad_fixed_t sbsample[2][36][32];	/* synthesis subband filter samples */
+  int has_overlap;
   mad_fixed_t overlap[2][32][18];	/* Layer III block overlap data */
 };
 

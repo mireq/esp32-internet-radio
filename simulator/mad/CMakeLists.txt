@@ -15,7 +15,7 @@ include_directories(
 	"${CMAKE_CURRENT_SOURCE_DIR}/src/"
 )
 list(TRANSFORM MAD_SOURCES PREPEND ${CMAKE_CURRENT_SOURCE_DIR}/src/)
-add_definitions(-DHAVE_CONFIG_H -g3 -ggdb)
+add_definitions(-DHAVE_CONFIG_H -g3 -ggdb -Wall)
 add_library(mad STATIC
 	${MAD_SOURCES}
 )

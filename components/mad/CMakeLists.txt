@@ -1,6 +1,5 @@
 idf_component_register(
 	SRCS
-		"align.c"
 		"bit.c"
 		"decoder.c"
 		"fixed.c"

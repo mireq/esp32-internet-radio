@@ -44,8 +44,6 @@
 # include "frame.h"
 # include "huffman.h"
 # include "layer3.h"
-#include "align.h"
-
 
 /* --- Layer III ----------------------------------------------------------- */
 
@@ -721,8 +719,8 @@ unsigned int III_scalefactors(struct mad_bitptr *ptr, struct channel *channel,
 
   start = *ptr;
 
-  slen1 = unalChar(&sflen_table[channel->scalefac_compress].slen1);
-  slen2 = unalChar(&sflen_table[channel->scalefac_compress].slen2);
+  slen1 = sflen_table[channel->scalefac_compress].slen1;
+  slen2 = sflen_table[channel->scalefac_compress].slen2;
 
   if (channel->block_type == 2) {
     unsigned int nsfb;
@@ -838,7 +836,7 @@ void III_exponents(struct channel const *channel,
 	  (signed int) ((channel->scalefac[sfbi] + (pretab[sfbi] & premask)) <<
 			scalefac_multiplier);
 
-	l += unalChar(&sfbwidth[sfbi++]);
+	l += sfbwidth[sfbi++];
       }
     }
 
@@ -856,7 +854,7 @@ void III_exponents(struct channel const *channel,
       exponents[sfbi + 2] = gain2 -
 	(signed int) (channel->scalefac[sfbi + 2] << scalefac_multiplier);
 
-      l    += 3 * unalChar(&sfbwidth[sfbi]);
+      l    += 3 * sfbwidth[sfbi];
       sfbi += 3;
     }
   }
@@ -971,7 +969,7 @@ enum mad_error III_huffdecode(struct mad_bitptr *ptr, mad_fixed_t xr[576],
     unsigned int linbits, startbits, big_values, reqhits;
     mad_fixed_t reqcache[16];
 
-    sfbound = xrptr + unalChar(sfbwidth++);
+    sfbound = xrptr + *sfbwidth++;
     rcount  = channel->region0_count + 1;
 
     entry     = &mad_huff_pair_table[channel->table_select[region = 0]];
@@ -994,7 +992,7 @@ enum mad_error III_huffdecode(struct mad_bitptr *ptr, mad_fixed_t xr[576],
       register mad_fixed_t requantized;
 
       if (xrptr == sfbound) {
-	sfbound += unalChar(sfbwidth++);
+	sfbound += *sfbwidth++;
 
 	/* change table if region boundary */
 
@@ -1193,7 +1191,7 @@ enum mad_error III_huffdecode(struct mad_bitptr *ptr, mad_fixed_t xr[576],
       cachesz -= quad->value.hlen;
 
       if (xrptr == sfbound) {
-	sfbound += unalChar(sfbwidth++);
+	sfbound += *sfbwidth++;
 
 	if (exp != *expptr) {
 	  exp = *expptr;
@@ -1216,7 +1214,7 @@ enum mad_error III_huffdecode(struct mad_bitptr *ptr, mad_fixed_t xr[576],
       xrptr += 2;
 
       if (xrptr == sfbound) {
-	sfbound += unalChar(sfbwidth++);
+	sfbound += *sfbwidth++;
 
 	if (exp != *expptr) {
 	  exp = *expptr;
@@ -1294,7 +1292,7 @@ void III_reorder(mad_fixed_t xr[576], struct channel const *channel,
 
     l = 0;
     while (l < 36)
-      l += unalChar(sfbwidth++);
+      l += *sfbwidth++;
   }
 
   for (w = 0; w < 3; ++w) {
@@ -1302,12 +1300,12 @@ void III_reorder(mad_fixed_t xr[576], struct channel const *channel,
     sw[w]  = 0;
   }
 
-  f = unalChar(sfbwidth++);
+  f = *sfbwidth++;
   w = 0;
 
   for (l = 18 * sb; l < 576; ++l) {
     if (f-- == 0) {
-      f = unalChar(sfbwidth++) - 1;
+      f = *sfbwidth++ - 1;
       w = (w + 1) % 3;
     }
 
@@ -1364,7 +1362,7 @@ enum mad_error III_stereo(mad_fixed_t xr[2][576],
 
       if (right_ch->flags & mixed_block_flag) {
 	while (l < 36) {
-	  n = unalChar(&sfbwidth[sfbi++]);
+	  n = sfbwidth[sfbi++];
 
 	  for (i = 0; i < n; ++i) {
 	    if (right_xr[i]) {
@@ -1382,7 +1380,7 @@ enum mad_error III_stereo(mad_fixed_t xr[2][576],
 
       w = 0;
       while (l < 576) {
-	n = unalChar(&sfbwidth[sfbi++]);
+	n = sfbwidth[sfbi++];
 
 	for (i = 0; i < n; ++i) {
 	  if (right_xr[i]) {
@@ -1419,7 +1417,7 @@ enum mad_error III_stereo(mad_fixed_t xr[2][576],
 
       bound = 0;
       for (sfbi = l = 0; l < 576; l += n) {
-	n = unalChar(&sfbwidth[sfbi++]);
+	n = sfbwidth[sfbi++];
 
 	for (i = 0; i < n; ++i) {
 	  if (right_xr[i]) {
@@ -1445,7 +1443,7 @@ enum mad_error III_stereo(mad_fixed_t xr[2][576],
       lsf_scale = is_lsf_table[right_ch->scalefac_compress & 0x1];
 
       for (sfbi = l = 0; l < 576; ++sfbi, l += n) {
-	n = unalChar(&sfbwidth[sfbi]);
+	n = sfbwidth[sfbi];
 
 	if (!(modes[sfbi] & I_STEREO))
 	  continue;
@@ -1481,7 +1479,7 @@ enum mad_error III_stereo(mad_fixed_t xr[2][576],
     }
     else {  /* !(header->flags & MAD_FLAG_LSF_EXT) */
       for (sfbi = l = 0; l < 576; ++sfbi, l += n) {
-	n = unalChar(&sfbwidth[sfbi]);
+	n = sfbwidth[sfbi];
 
 	if (!(modes[sfbi] & I_STEREO))
 	  continue;
@@ -1515,7 +1513,7 @@ enum mad_error III_stereo(mad_fixed_t xr[2][576],
     invsqrt2 = root_table[3 + -2];
 
     for (sfbi = l = 0; l < 576; ++sfbi, l += n) {
-      n = unalChar(&sfbwidth[sfbi]);
+      n = sfbwidth[sfbi];
 
       if (modes[sfbi] != MS_STEREO)
 	continue;
@@ -2455,14 +2453,14 @@ enum mad_error III_decode(struct mad_bitptr *ptr, struct mad_frame *frame,
 	/* long blocks */
 	for (sb = 0; sb < 2; ++sb, l += 18) {
 	  III_imdct_l(&xr[ch][l], output, block_type);
-	  III_overlap(output, (frame->overlap)[ch][sb], sample, sb);
+	  III_overlap(output, frame->overlap[ch][sb], sample, sb);
 	}
       }
       else {
 	/* short blocks */
 	for (sb = 0; sb < 2; ++sb, l += 18) {
 	  III_imdct_s(&xr[ch][l], output);
-	  III_overlap(output, (frame->overlap)[ch][sb], sample, sb);
+	  III_overlap(output, frame->overlap[ch][sb], sample, sb);
 	}
       }
 
@@ -2480,7 +2478,7 @@ enum mad_error III_decode(struct mad_bitptr *ptr, struct mad_frame *frame,
 	/* long blocks */
 	for (sb = 2; sb < sblimit; ++sb, l += 18) {
 	  III_imdct_l(&xr[ch][l], output, channel->block_type);
-	  III_overlap(output, (frame->overlap)[ch][sb], sample, sb);
+	  III_overlap(output, frame->overlap[ch][sb], sample, sb);
 
 	  if (sb & 1)
 	    III_freqinver(sample, sb);
@@ -2490,7 +2488,7 @@ enum mad_error III_decode(struct mad_bitptr *ptr, struct mad_frame *frame,
 	/* short blocks */
 	for (sb = 2; sb < sblimit; ++sb, l += 18) {
 	  III_imdct_s(&xr[ch][l], output);
-	  III_overlap(output, (frame->overlap)[ch][sb], sample, sb);
+	  III_overlap(output, frame->overlap[ch][sb], sample, sb);
 
 	  if (sb & 1)
 	    III_freqinver(sample, sb);
@@ -2500,7 +2498,7 @@ enum mad_error III_decode(struct mad_bitptr *ptr, struct mad_frame *frame,
       /* remaining (zero) subbands */
 
       for (sb = sblimit; sb < 32; ++sb) {
-	III_overlap_z((frame->overlap)[ch][sb], sample, sb);
+	III_overlap_z(frame->overlap[ch][sb], sample, sb);
 
 	if (sb & 1)
 	  III_freqinver(sample, sb);
@@ -2528,7 +2526,10 @@ int mad_layer_III(struct mad_stream *stream, struct mad_frame *frame)
 
   /* allocate Layer III dynamic structures */
 
-  frame->has_overlap = 1;
+  if (!frame->has_overlap) {
+    bzero(frame->overlap, sizeof(frame->overlap));
+    frame->has_overlap = 1;
+  }
 
   nch = MAD_NCHANNELS(header);
   si_len = (header->flags & MAD_FLAG_LSF_EXT) ?

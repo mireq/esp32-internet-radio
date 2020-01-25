@@ -136,21 +136,12 @@ typedef struct http_header_t {
 } http_header_t;
 
 
-static ssize_t recv_noblock(int socket, char *buf, size_t size, SemaphoreHandle_t wait_data_semaphore) {
-	ssize_t received = -1;
-	while (received == -1) {
-		received = recv(socket, buf, size, MSG_DONTWAIT);
-		if (received == -1) {
-			if (errno == EAGAIN) {
-				if (xSemaphoreTake(wait_data_semaphore, 1) == pdTRUE) {
-					break;
-				}
-			}
-			else {
-				break;
-			}
-		}
+static ssize_t recv_data(int socket, char *buf, size_t size, SemaphoreHandle_t wait_data_semaphore) {
+	if (xSemaphoreTake(wait_data_semaphore, 10 / portTICK_PERIOD_MS) != pdTRUE) {
+		return -1;
 	}
+	ssize_t received = recv(socket, buf, size, 0);
+	xSemaphoreGive(wait_data_semaphore);
 	return received;
 }
 
@@ -235,7 +226,7 @@ static source_error_t source_http_init(source_t *source, const uri_t *uri) {
 	}
 	freeaddrinfo(res);
 
-	xSemaphoreTake(source->wait_data_semaphore, 0);
+	xSemaphoreGive(source->wait_data_semaphore);
 
 	const char template[] = "GET %s HTTP/1.0\r\nHost: %s\r\nUser-Agent: ESP32\r\nAccept: */*\r\nIcy-MetaData: 1\r\n\r\n";
 	char request[MAX_URI_SIZE + sizeof(template) + 1];
@@ -259,7 +250,7 @@ static source_error_t source_http_init(source_t *source, const uri_t *uri) {
 
 	char c;
 	for (size_t i = 0; i < MAX_HTTP_HEADER_SIZE; ++i) {
-		ssize_t received = recv_noblock(sock, &c, sizeof(c), source->wait_data_semaphore);
+		ssize_t received = recv_data(sock, &c, sizeof(c), source->wait_data_semaphore);
 		if (received == -1) {
 			break;
 		}
@@ -297,8 +288,8 @@ static void source_http_destroy(source_t *source) {
 		ESP_LOGI(TAG, "closed http stream");
 	}
 	source->type = SOURCE_TYPE_UNKNOWN;
+	xSemaphoreTake(source->wait_data_semaphore, 100 / portTICK_PERIOD_MS);
 	xSemaphoreGive(source->semaphore);
-	xSemaphoreGive(source->wait_data_semaphore);
 }
 
 static void parse_icy_metadata(source_t *source, char *buf) {
@@ -340,7 +331,7 @@ static ssize_t source_http_read_icy_metadata(source_t *source) {
 		buf = &http->icy_meta_buffer[http->icy_meta_readed];
 		requested = http->icy_meta_size - http->icy_meta_readed;
 	}
-	received = recv_noblock(source->data.http.sock, buf, requested, source->wait_data_semaphore);
+	received = recv_data(source->data.http.sock, buf, requested, source->wait_data_semaphore);
 	if (received > 0) {
 		if (http->icy_meta_size == -1) {
 			http->icy_meta_size = size * 16;
@@ -374,7 +365,7 @@ static ssize_t source_http_read(source_t *source, char *buf, ssize_t size) {
 			return source_http_read_icy_metadata(source);
 		}
 	}
-	received = recv_noblock(source->data.http.sock, buf, requested, source->wait_data_semaphore);
+	received = recv_data(source->data.http.sock, buf, requested, source->wait_data_semaphore);
 	if (received > 0) {
 		http->icy_meta_interval_distance -= received;
 	}

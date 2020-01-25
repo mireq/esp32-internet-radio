@@ -233,7 +233,7 @@ static source_error_t source_http_init(source_t *source, const uri_t *uri) {
 	bzero(request, sizeof(request));
 	sprintf(request, template, uri->path, uri->host);
 
-	if (write(sock, request, strlen(request)) < 0) {
+	if (send(sock, request, strlen(request), 0) < 0) {
 		ESP_LOGE(TAG, "socket write failed");
 		close(sock);
 		xSemaphoreGive(source->semaphore);

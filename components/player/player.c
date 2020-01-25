@@ -38,6 +38,16 @@ static audio_output_t audio_output = {
 	.sample_rate = 44100,
 };
 
+typedef struct player_stats_t {
+	uint64_t network_readed_bytes;
+	uint64_t network_readed_bytes_history[10];
+} player_stats_t;
+
+static player_stats_t player_stats = {
+	.network_readed_bytes = 0,
+	.network_readed_bytes_history = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+};
+
 
 /* Events */
 
@@ -211,6 +221,7 @@ void read_task(void *arg) {
 				break;
 			}
 			else if (size > 0) {
+				player_stats.network_readed_bytes += size;
 				buffer_write(&network_buffer, source_read_buffer, size);
 			}
 		}
@@ -221,8 +232,16 @@ void read_task(void *arg) {
 
 void player_stats_task(void *parameters) {
 	for (;;) {
-		printf(TERM_ERASE_LINE "\rb: %05d | %05d | %05d\r", (int)network_buffer.r_pos, (int)network_buffer.w_pos, (int)buffer_get_full(&network_buffer));
+		// Calculate network speed
+		float kbps = (float)((player_stats.network_readed_bytes - player_stats.network_readed_bytes_history[0]) * 8) / 1024.0;
+
+		printf(TERM_ERASE_LINE "\rb: %05d | %05d | %05d | %03.1f kbps\r", (int)network_buffer.r_pos, (int)network_buffer.w_pos, (int)buffer_get_full(&network_buffer), kbps);
 		fflush(stdout);
+
+		// Record download history
+		memmove(&player_stats.network_readed_bytes_history[0], &player_stats.network_readed_bytes_history[1], sizeof(player_stats.network_readed_bytes_history) - sizeof(player_stats.network_readed_bytes));
+		player_stats.network_readed_bytes_history[9] = player_stats.network_readed_bytes;
+
 		vTaskDelay(100 / portTICK_PERIOD_MS);
 	}
 	vTaskDelete(NULL);

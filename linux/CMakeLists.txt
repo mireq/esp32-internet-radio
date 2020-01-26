@@ -1,21 +1,12 @@
 cmake_minimum_required(VERSION 3.5)
 
-project(simulator)
+project(linux)
 
-add_subdirectory("freertos")
-add_subdirectory("lwip")
-add_subdirectory("mbedtls")
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../simulator/src ${CMAKE_CURRENT_BINARY_DIR}/simulator)
 add_subdirectory("mad")
 
 include_directories(
-	"${CMAKE_SOURCE_DIR}/include/"
-	"${CMAKE_SOURCE_DIR}/freertos/src/FreeRTOS_Posix"
-	"${CMAKE_SOURCE_DIR}/freertos/src/FreeRTOS_Posix/FreeRTOS_Kernel/include"
-	"${CMAKE_SOURCE_DIR}/lwip/src/src/include"
-	"${CMAKE_SOURCE_DIR}/lwip/contrib/ports/freertos/include"
-	"${CMAKE_SOURCE_DIR}/lwip/contrib/ports/unix/port/include"
-	"${CMAKE_SOURCE_DIR}/mbedtls/src/include"
-	"${CMAKE_SOURCE_DIR}/mbedtls/src/crypto/include"
+	${ESP_SIMULATOR_INCLUDE_DIRECTORIES}
 	"${CMAKE_SOURCE_DIR}/../components/buffer/include/"
 	"${CMAKE_SOURCE_DIR}/../components/http_header_parser/include/"
 	"${CMAKE_SOURCE_DIR}/../components/http_server/include/"
@@ -32,13 +23,7 @@ include_directories(
 
 add_executable(
 	${PROJECT_NAME}
-	esp_err.c
-	esp_event.c
-	esp_heap_caps.c
-	esp_log.c
 	init.c
-	startup.c
-	"$ENV{IDF_PATH}/components/esp_event/esp_event.c"
 
 	"${CMAKE_SOURCE_DIR}/../components/buffer/buffer.c"
 	"${CMAKE_SOURCE_DIR}/../components/http_header_parser/http_header_parser.c"
@@ -60,11 +45,9 @@ add_definitions(-D_GNU_SOURCE -DSIMULATOR -g3 -ggdb)
 target_link_libraries(
 	${PROJECT_NAME}
 	asound
-	freertos
-	lwip
 	mad
-	mbedtls
-	pthread
-	rt
+	simulator
 )
 set_property(TARGET ${PROJECT_NAME} PROPERTY C_STANDARD 11)
+set_target_properties(${PROJECT_NAME} PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_ROOT_BUILD_DIR}")
+set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME "linux_simulator")

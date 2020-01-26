@@ -1,15 +1,6 @@
-[submodule "simulator/lwip/src"]
-	path = simulator/lwip/src
-	url = https://git.savannah.nongnu.org/git/lwip.git
-[submodule "simulator/freertos/src"]
-	path = simulator/freertos/src
-	url = https://github.com/mireq/Posix_GCC_Simulator.git
-[submodule "simulator/mbedtls/src"]
-	path = simulator/mbedtls/src
-	url = https://github.com/ARMmbed/mbedtls.git
-[submodule "simulator/lwip/contrib"]
-	path = simulator/lwip/contrib
-	url = https://git.savannah.nongnu.org/git/lwip/lwip-contrib.git
 [submodule "webinterface/vendor/noUiSlider"]
 	path = webinterface/vendor/noUiSlider
 	url = https://github.com/leongersen/noUiSlider
+[submodule "simulator"]
+	path = simulator
+	url = https://github.com/mireq/esp32-simulator.git

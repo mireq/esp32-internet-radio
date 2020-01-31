@@ -37,6 +37,7 @@ add_executable(
 	"${CMAKE_SOURCE_DIR}/../components/player/source.c"
 	"${CMAKE_SOURCE_DIR}/../main/init.c"
 	"${CMAKE_SOURCE_DIR}/../main/main.c"
+	"${CMAKE_SOURCE_DIR}/../main/trace.c"
 	"${CMAKE_SOURCE_DIR}/../main/task_debug.c"
 )
 

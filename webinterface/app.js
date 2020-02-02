@@ -16,6 +16,7 @@ var COMMAND_SET_PLAYLIST_ITEM = 1;
 var COMMAND_SET_VOLUME = 2;
 
 var RESPONSE_PONG = 0;
+var RESPONSE_STATUS = 1;
 
 
 function getSettings(key, onSuccess) {
@@ -203,7 +204,11 @@ function Api(socket_url) {
 			case RESPONSE_PONG:
 				pongReceived = true;
 				break;
+			case RESPONSE_STATUS:
+				console.log("status");
+				break;
 			default:
+				console.log("Unknown command", commandNr);
 				break;
 		}
 	};
@@ -234,8 +239,8 @@ function Api(socket_url) {
 
 	this.connection.signals.messageReceived.connect(function(event) {
 		event.data.arrayBuffer().then(function(buf) {
-			var commandView = new Uint16Array(buf, 0, 1);
-			var commandNr = commandView[0];
+			var commandView = new DataView(buf, 0, 2);
+			var commandNr = commandView.getUint16(0);
 			var data = buf.slice(2);
 			self.receiveCommand(commandNr, data);
 		});

@@ -17,10 +17,11 @@ typedef enum WS_COMMAND_t {
 /* Response codes */
 typedef enum WS_RESPONSE_t {
 	WS_RESPONSE_PONG,
+	WS_RESPONSE_STATUS,
 } WS_RESPONSE_t;
 
 
-void init_http_control(void);
+void http_control_task(void *arg);
 
 
 #endif

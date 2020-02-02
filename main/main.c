@@ -11,9 +11,6 @@ void app_main(void)
 	init_player();
 	init_tasks();
 	init_network();
-#if CONFIG_HTTP_CONTROL
-	init_http_control();
-#endif
 	init_framebuffer();
 	for (;;) {
 		vTaskDelay(10000);

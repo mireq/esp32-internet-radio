@@ -51,7 +51,7 @@ typedef struct http_request_t {
 	char sec_websocket_key[32];
 	http_server_t *server;
 	int client_socket;
-	SemaphoreHandle_t wait_data_semaphore;
+	SemaphoreHandle_t write_data_semaphore;
 } http_request_t;
 
 
@@ -67,7 +67,7 @@ static ssize_t recv_frame_data(int socket, websocket_header_t *header, void *buf
 
 	ssize_t received = recv(socket, buf, size, MSG_WAITALL);
 	if (received >= 0) {
-		uint8_t *buf_data = (char *)buf;
+		uint8_t *buf_data = (uint8_t *)buf;
 		for (size_t i = 0; i < received; ++i) {
 			buf_data[i] ^= header->mask[(header->pos + i) & 0x03];
 		}
@@ -83,6 +83,7 @@ static const char http_ws_start[] = "HTTP/1.1 101 Switching Protocols\r\nUpgrade
 static const char ws_magic_guid[] = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
 static http_request_t request;
+static SemaphoreHandle_t player_status_semaphore;
 
 
 static void ws_handshake(http_request_t *request) {
@@ -265,7 +266,6 @@ static esp_err_t handle_set_volume(http_request_t *request, websocket_header_t *
 		return ESP_FAIL;
 	}
 	volume = ntohs(volume);
-	printf("%d\n", volume);
 	esp_event_post_to(player_event_loop, CONTROL_COMMAND, CONTROL_COMMAND_SET_VOLUME, &volume, sizeof(volume), portMAX_DELAY);
 	return ESP_OK;
 }
@@ -296,6 +296,16 @@ static esp_err_t handle_websocket_frame(http_request_t *request, websocket_heade
 			return ESP_FAIL;
 	}
 	return ESP_OK;
+}
+
+
+static esp_err_t send_player_status(http_request_t *request) {
+	response_message_t msg = {
+		.command = WS_RESPONSE_STATUS,
+		.size = 0,
+		.data = NULL,
+	};
+	return send_websocket_message(request, &msg);
 }
 
 
@@ -384,10 +394,11 @@ static void *on_http_event(http_event_type_t type, void *data) {
 			bzero(request.sec_websocket_key, sizeof(request.sec_websocket_key));
 			return &request;
 		case HTTP_REQUEST:
+			xSemaphoreGive(player_status_semaphore);
 			on_http_request((http_request_t *)data);
 			break;
 		case HTTP_CLOSE:
-			xSemaphoreGive(request.wait_data_semaphore);
+			xSemaphoreGive(request.write_data_semaphore);
 			bzero(&request.server, sizeof(request.server));
 			bzero(&request.client_socket, sizeof(request.client_socket));
 			break;
@@ -405,12 +416,34 @@ static http_server_t server = {
 };
 
 
-void init_http_control(void) {
-	request.wait_data_semaphore = xSemaphoreCreateBinary();
-	if (request.wait_data_semaphore == NULL) {
-		ESP_LOGE(TAG, "wait_data_semaphore not created");
+static void http_control_init(void) {
+	request.write_data_semaphore = xSemaphoreCreateBinary();
+	if (request.write_data_semaphore == NULL) {
+		ESP_LOGE(TAG, "write_data_semaphore not created");
+	}
+	player_status_semaphore = xSemaphoreCreateBinary();
+	if (player_status_semaphore == NULL) {
+		ESP_LOGE(TAG, "player_status_semaphore not created");
 	}
 	http_server_init(&server, on_http_event, NULL);
+}
+
+
+void http_control_task(void *arg) {
+	http_control_init();
+	while (1) {
+		if (xSemaphoreTake(player_status_semaphore, portMAX_DELAY)) {
+			while (1) {
+				if (!request.server) {
+					break;
+				}
+				if (send_player_status(&request) != ESP_OK) {
+					break;
+				}
+				vTaskDelay(50 / portTICK_PERIOD_MS);
+			}
+		}
+	}
 }
 
 

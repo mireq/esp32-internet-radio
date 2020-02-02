@@ -284,18 +284,25 @@ static esp_err_t handle_websocket_frame(http_request_t *request, websocket_heade
 	// Network byte order
 	command = ntohs(command);
 
+	esp_err_t status = ESP_OK;
+	xSemaphoreTake(request->write_data_semaphore, 1000 / portTICK_PERIOD_MS);
 	// Handle command
 	switch (command) {
 		case WS_COMMAND_PING:
-			return handle_ping(request, header);
+			status = handle_ping(request, header);
+			break;
 		case WS_COMMAND_SET_PLAYLIST_ITEM:
-			return handle_set_playlist_item(request, header);
+			status = handle_set_playlist_item(request, header);
+			break;
 		case WS_COMMAND_SET_VOLUME:
-			return handle_set_volume(request, header);
+			status = handle_set_volume(request, header);
+			break;
 		default:
-			return ESP_FAIL;
+			status = ESP_FAIL;
+			break;
 	}
-	return ESP_OK;
+	xSemaphoreGive(request->write_data_semaphore);
+	return status;
 }
 
 
@@ -437,7 +444,10 @@ void http_control_task(void *arg) {
 				if (!request.server) {
 					break;
 				}
-				if (send_player_status(&request) != ESP_OK) {
+				xSemaphoreTake(request.write_data_semaphore, portMAX_DELAY);
+				esp_err_t status = send_player_status(&request);
+				xSemaphoreGive(request.write_data_semaphore);
+				if (status != ESP_OK) {
 					break;
 				}
 				vTaskDelay(50 / portTICK_PERIOD_MS);

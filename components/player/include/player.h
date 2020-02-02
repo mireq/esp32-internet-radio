@@ -17,6 +17,8 @@ typedef struct player_state_t {
 	uint16_t volume;
 } player_state_t;
 
+extern player_state_t player_state;
+
 
 void init_player(void);
 void player_task(void *arg);

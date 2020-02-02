@@ -21,6 +21,11 @@ typedef enum WS_RESPONSE_t {
 } WS_RESPONSE_t;
 
 
+typedef enum WS_STATUS_t {
+	WS_STATUS_VOLUME,
+} WS_STATUS_t;
+
+
 void http_control_task(void *arg);
 
 

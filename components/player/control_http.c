@@ -194,7 +194,7 @@ static esp_err_t send_websocket_header(http_request_t *request, size_t size) {
 
 
 static esp_err_t send_websocket_message(http_request_t *request, response_message_t *message) {
-	if (send_websocket_header(request, sizeof(message->command)) != ESP_OK) {
+	if (send_websocket_header(request, message->size + sizeof(message->command)) != ESP_OK) {
 		return ESP_FAIL;
 	}
 
@@ -307,11 +307,24 @@ static esp_err_t handle_websocket_frame(http_request_t *request, websocket_heade
 
 
 static esp_err_t send_player_status(http_request_t *request) {
+	xSemaphoreTake(player_state.access_mutex, portMAX_DELAY);
+
+	char data[1 + sizeof(uint16_t)];
 	response_message_t msg = {
 		.command = WS_RESPONSE_STATUS,
-		.size = 0,
-		.data = NULL,
+		.size = sizeof(data),
+		.data = &data[0],
 	};
+
+	char *write_ptr = &data[0];
+
+	*write_ptr = WS_STATUS_VOLUME;
+	write_ptr++;
+	*((uint16_t *)write_ptr) = htons(player_state.volume);
+	write_ptr += sizeof(uint16_t);
+
+	xSemaphoreGive(player_state.access_mutex);
+
 	return send_websocket_message(request, &msg);
 }
 

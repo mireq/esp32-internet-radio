@@ -18,6 +18,8 @@ var COMMAND_SET_VOLUME = 2;
 var RESPONSE_PONG = 0;
 var RESPONSE_STATUS = 1;
 
+var STATUS_VOLUME = 0;
+
 
 function getSettings(key, onSuccess) {
 	if (storage === undefined) {
@@ -165,9 +167,12 @@ function Api(socket_url) {
 	var pongReceived = false;
 	var oldStatus = 'disconnected';
 
+	var volume = 0;
+
 	var signals = {
 		connected: new Signal(),
 		disconnected: new Signal(),
+		volumeChanged: new Signal(),
 	};
 
 	function checkPong() {
@@ -205,7 +210,7 @@ function Api(socket_url) {
 				pongReceived = true;
 				break;
 			case RESPONSE_STATUS:
-				console.log("status");
+				self.processStatus(data);
 				break;
 			default:
 				console.log("Unknown command", commandNr);
@@ -264,6 +269,28 @@ function Api(socket_url) {
 		var volumeView = new DataView(buf, 0, 2);
 		volumeView.setUint16(0, volume);
 		this.sendCommand(COMMAND_SET_VOLUME, buf);
+	};
+
+	this.processStatus = function(data) {
+		while (data.byteLength) {
+			var cmd = new Uint8Array(data)[0];
+			data = data.slice(1);
+			switch (cmd) {
+				case STATUS_VOLUME:
+					data = data.slice(self.processStatusVolume(data));
+					break;
+			}
+		}
+	};
+
+	this.processStatusVolume = function(data) {
+		var dataView = new DataView(data, 0, 2);
+		var volume = dataView.getUint16(0);
+		if (self.volume !== volume) {
+			self.volume = volume;
+			self.signals.volumeChanged.send(self.volume);
+		}
+		return 2;
 	};
 
 	this.connection.connect();
@@ -358,6 +385,12 @@ function initSliders() {
 
 		element.addEventListener('click', onSliderClicked);
 		element.noUiSlider.on('update', _.debounce(onUpdate, 100));
+		element.noUiSlider.on('start', function() {
+			element.noUiSlider.dragging = true;
+		});
+		element.noUiSlider.on('end', function() {
+			element.noUiSlider.dragging = undefined;
+		});
 	});
 }
 
@@ -386,6 +419,7 @@ function startApp() {
 	}
 	document.body.className = 'connecting';
 	api = new Api(wsAddress);
+	var volumeInput = document.getElementById('input_volume');
 
 	api.signals.connected.connect(function() {
 		document.body.className = 'player';
@@ -393,7 +427,12 @@ function startApp() {
 	api.signals.disconnected.connect(function() {
 		document.body.className = 'connecting';
 	});
-	var volumeInput = document.getElementById('input_volume');
+	api.signals.volumeChanged.connect(function(volume) {
+		var element = document.getElementById('volume_slider');
+		if (!element.noUiSlider.dragging) {
+			element.noUiSlider.set(100 * api.volume / 65535.0);
+		}
+	});
 	volumeInput.addEventListener('change', function() {
 		if (api !== undefined && api.connection.status === 'connected') {
 			api.setVolume(volumeInput.value);

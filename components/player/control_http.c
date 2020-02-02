@@ -13,6 +13,7 @@
 #include "mbedtls/base64.h"
 #include "mbedtls/sha1.h"
 
+#include "bits.h"
 #include "control_http.h"
 #include "http_header_parser/http_header_parser.h"
 #include "http_server.h"
@@ -25,21 +26,21 @@
 static const char *TAG = "control_http";
 
 
-#define MAX_WS_FRAME_SIZE 125
+typedef struct websocket_header_t {
+	uint64_t size;
+	uint64_t pos;
+	char mask[4];
+} websocket_header_t;
 
 
-typedef struct websocket_frame_t {
-	char data[MAX_WS_FRAME_SIZE];
-	uint16_t size;
-} websocket_frame_t;
+typedef uint16_t command_code_t;
 
 
-typedef struct command_message_t {
-	uint16_t command;
-	char data[MAX_WS_FRAME_SIZE - 2];
-	uint16_t size;
-} command_message_t;
-typedef command_message_t response_message_t;
+typedef struct response_message_t {
+	command_code_t command;
+	uint64_t size;
+	char *data;
+} response_message_t;
 
 
 typedef struct http_request_t {
@@ -54,55 +55,25 @@ typedef struct http_request_t {
 } http_request_t;
 
 
-static ssize_t recv_noblock(int socket, void *buf, size_t size, SemaphoreHandle_t wait_data_semaphore) {
-	ssize_t received = -1;
-	size_t suc_received = 0;
-	while (received == -1) {
-		received = recv(socket, buf + suc_received, size - suc_received, MSG_DONTWAIT);
-		if (received == -1) {
-			if (errno == EAGAIN || errno == EWOULDBLOCK) {
-				if (xSemaphoreTake(wait_data_semaphore, 1) == pdTRUE) {
-					return -1;
-				}
-			}
-			else {
-				return -1;
-			}
-		}
-		else {
-			suc_received += received;
-			if (suc_received >= size) {
-				break;
-			}
-		}
-	}
-	return suc_received;
-}
 
-
-static ssize_t send_noblock(int socket, void *buf, size_t size, SemaphoreHandle_t wait_data_semaphore) {
-	ssize_t sent = -1;
-	size_t suc_sent = 0;
-	while (sent == -1) {
-		sent = send(socket, buf + suc_sent, size - suc_sent, MSG_DONTWAIT);
-		if (sent == -1) {
-			if (errno == EAGAIN || errno == EWOULDBLOCK) {
-				if (xSemaphoreTake(wait_data_semaphore, 1) == pdTRUE) {
-					return -1;
-				}
-			}
-			else {
-				return -1;
-			}
+static ssize_t recv_frame_data(int socket, websocket_header_t *header, void *buf, size_t size) {
+	if (size > header->size - header->pos) {
+		ssize_t received = recv(socket, buf, header->size - header->pos, MSG_WAITALL);
+		if (received >= 0) {
+			header->pos += received;
 		}
-		else {
-			suc_sent += sent;
-			if (suc_sent >= size) {
-				break;
-			}
-		}
+		return -1;
 	}
-	return suc_sent;
+
+	ssize_t received = recv(socket, buf, size, MSG_WAITALL);
+	if (received >= 0) {
+		uint8_t *buf_data = (char *)buf;
+		for (size_t i = 0; i < received; ++i) {
+			buf_data[i] ^= header->mask[(header->pos + i) & 0x03];
+		}
+		header->pos += received;
+	}
+	return received;
 }
 
 
@@ -144,60 +115,76 @@ static void home_http_handler(http_request_t *request) {
 }
 
 
-static esp_err_t receive_websocket_frame(http_request_t *request, websocket_frame_t *frame) {
-	uint8_t header[2];
-	char mask[] = {0, 0, 0, 0};
+static esp_err_t receive_websocket_header(http_request_t *request, websocket_header_t *header) {
+	uint8_t header_data[2];
 	ssize_t received;
-	received = recv_noblock(request->client_socket, header, sizeof(header), request->wait_data_semaphore);
+	header->pos = 0;
+	received = recv(request->client_socket, header_data, sizeof(header_data), 0);
 	if (received == -1) {
 		return ESP_FAIL;
 	}
 	bool has_mask = false;
-	if (header[0] & 0x80) {
+	if (header_data[0] & 0x80) {
 		has_mask = true;
 	}
-	uint8_t opcode = header[0] & 0x0f;
+	uint8_t opcode = header_data[0] & 0x0f;
 	if (opcode == 0x08) { // Final frame
 		return ESP_FAIL;
 	}
 
-	frame->size = header[1] & 0x7f;
+	// Set header
+	header->size = header_data[1] & 0x7f;
 
-	// Message too long
-	if (frame->size > MAX_WS_FRAME_SIZE) {
-		return ESP_FAIL;
+	if (header->size == 126) {
+		uint16_t size;
+		received = recv(request->client_socket, &size, sizeof(size), 0);
+		if (received == -1) {
+			return ESP_FAIL;
+		}
+		header->size = ntohs(size);
+	}
+	else if (header->size == 127) {
+		uint64_t size;
+		received = recv(request->client_socket, &size, sizeof(size), 0);
+		if (received == -1) {
+			return ESP_FAIL;
+		}
+		header->size = ntoh64(size);
 	}
 
 	// Read optional mask
 	if (has_mask) {
-		received = recv_noblock(request->client_socket, &mask, sizeof(mask), request->wait_data_semaphore);
+		received = recv(request->client_socket, &header->mask, sizeof(header->mask), MSG_WAITALL);
 		if (received == -1) {
 			return ESP_FAIL;
 		}
-	}
-
-	// Read message
-	received = recv_noblock(request->client_socket, frame->data, frame->size, request->wait_data_semaphore);
-	if (received == -1) {
-		return ESP_FAIL;
-	}
-
-	// Apply mask
-	for (size_t i = 0; i < frame->size; ++i) {
-		frame->data[i] ^= mask[i & 0x03];
 	}
 
 	return ESP_OK;
 }
 
 
-static esp_err_t send_websocket_frame(http_request_t *request, const websocket_frame_t *frame) {
-	char buf[MAX_WS_FRAME_SIZE + 2];
-	buf[0] = 0x80 | 0x02; // binary
-	buf[1] = frame->size;
-	memcpy(buf + 2, frame->data, frame->size);
+static esp_err_t send_websocket_header(http_request_t *request, size_t size) {
+	uint8_t header[10];
+	size_t header_size;
+	header[0] = 0x80 | 0x02; // binary
+	if (size < 126) {
+		header[1] = size & 0x7f;
+		header_size = 2;
+	}
+	else if (size <= 65535) {
+		header[1] = 126;
+		header_size = 4;
+		uint16_t native_size = htons(size);
+		memcpy(&header[2], &native_size, sizeof(native_size));
+	}
+	else {
+		header_size = 10;
+		uint64_t native_size = hton64(size);
+		memcpy(&header[2], &native_size, sizeof(native_size));
+	}
 	ssize_t processed;
-	processed = send_noblock(request->client_socket, buf, frame->size + 2, request->wait_data_semaphore);
+	processed = send(request->client_socket, &header, header_size, 0);
 	if (processed < 0) {
 		return ESP_FAIL;
 	}
@@ -205,66 +192,121 @@ static esp_err_t send_websocket_frame(http_request_t *request, const websocket_f
 }
 
 
-static esp_err_t send_websocket_response(http_request_t *request, const response_message_t *message) {
-	websocket_frame_t wsframe;
-	wsframe.size = message->size + sizeof(message->command);
-	memcpy(&wsframe.data, &message->command, sizeof(message->command));
-	memcpy(&wsframe.data + sizeof(message->command), message->data, message->size);
-	send_websocket_frame(request, &wsframe);
+static esp_err_t send_websocket_message(http_request_t *request, response_message_t *message) {
+	if (send_websocket_header(request, sizeof(message->command)) != ESP_OK) {
+		return ESP_FAIL;
+	}
+
+	// To network byte order
+	command_code_t command = htons(message->command);
+
+	ssize_t processed;
+	processed = send(request->client_socket, &command, sizeof(command), 0);
+	if (processed < 0) {
+		return ESP_FAIL;
+	}
+
+	if (message->size > 0 && message->data != NULL) {
+		processed = send(request->client_socket, message->data, message->size, 0);
+		if (processed < 0) {
+			return ESP_FAIL;
+		}
+	}
 	return ESP_OK;
 }
 
 
-static esp_err_t handle_ping(http_request_t *request, command_message_t *message) {
-	static const response_message_t response = {
+static esp_err_t handle_ping(http_request_t *request, websocket_header_t *header) {
+	response_message_t msg = {
 		.command = WS_RESPONSE_PONG,
 		.size = 0,
+		.data = NULL,
 	};
-	send_websocket_response(request, &response);
-	return ESP_OK;
+	return send_websocket_message(request, &msg);
 }
 
 
-static esp_err_t handle_set_playlist_item(http_request_t *request, command_message_t *message) {
-	char *uri = message->data;
-	char *name = message->data;
-	name += strlen(uri) + 1;
+static esp_err_t handle_set_playlist_item(http_request_t *request, websocket_header_t *header) {
+	char data[sizeof(((playlist_item_t *)0)->name) + sizeof(((playlist_item_t *)0)->uri)];
+	if (header->size > sizeof(data)) {
+		return ESP_FAIL;
+	}
+	ssize_t received = recv_frame_data(request->client_socket, header, &data, header->size - sizeof(command_code_t));
+	if (received < 0) {
+		return ESP_FAIL;
+	}
+
+	data[sizeof(data) - 1] = 0;
+
+	const char *uri = &data[0];
+	const char *name = &data[0];
+
+	while (*name) {
+		name++;
+	}
+	name++;
+
+	if (name - uri >= sizeof(data)) {
+		return ESP_FAIL;
+	}
+
 	playlist_set_item_simple(&playlist, name, uri);
 	return ESP_OK;
 }
 
 
-static esp_err_t handle_set_volume(http_request_t *request, command_message_t *message) {
-	uint16_t volume = ((uint16_t *)message->data)[0];
+static esp_err_t handle_set_volume(http_request_t *request, websocket_header_t *header) {
+	if (header->size != sizeof(command_code_t) + sizeof(uint16_t)) {
+		return ESP_FAIL;
+	}
+	uint16_t volume;
+	ssize_t received = recv_frame_data(request->client_socket, header, &volume, sizeof(volume));
+	if (received < 0) {
+		return ESP_FAIL;
+	}
+	volume = ntohs(volume);
+	printf("%d\n", volume);
 	esp_event_post_to(player_event_loop, CONTROL_COMMAND, CONTROL_COMMAND_SET_VOLUME, &volume, sizeof(volume), portMAX_DELAY);
 	return ESP_OK;
 }
 
 
-static esp_err_t process_websocket_message(http_request_t *request, command_message_t *message) {
-	switch (message->command) {
+static esp_err_t handle_websocket_frame(http_request_t *request, websocket_header_t *header) {
+	command_code_t command;
+
+	// Read command
+	ssize_t received;
+	received = recv_frame_data(request->client_socket, header, &command, sizeof(command));
+	if (received < 0) {
+		return ESP_FAIL;
+	}
+
+	// Network byte order
+	command = ntohs(command);
+
+	// Handle command
+	switch (command) {
 		case WS_COMMAND_PING:
-			return handle_ping(request, message);
+			return handle_ping(request, header);
 		case WS_COMMAND_SET_PLAYLIST_ITEM:
-			return handle_set_playlist_item(request, message);
+			return handle_set_playlist_item(request, header);
 		case WS_COMMAND_SET_VOLUME:
-			return handle_set_volume(request, message);
+			return handle_set_volume(request, header);
 		default:
 			return ESP_FAIL;
 	}
+	return ESP_OK;
 }
 
 
 static void control_http_handler(http_request_t *request) {
 	ws_handshake(request);
 	while (1) {
-		websocket_frame_t websocket_frame;
-		if (receive_websocket_frame(request, &websocket_frame) != ESP_OK) {
+		websocket_header_t websocket_header;
+		if (receive_websocket_header(request, &websocket_header) != ESP_OK) {
 			break;
 		}
-		command_message_t *msg = (command_message_t *)&websocket_frame;
-		msg->size -= sizeof(msg->command);
-		if (process_websocket_message(request, msg) != ESP_OK) {
+		if (handle_websocket_frame(request, &websocket_header) != ESP_OK) {
 			break;
 		}
 	}
@@ -342,8 +384,6 @@ static void *on_http_event(http_event_type_t type, void *data) {
 			bzero(request.sec_websocket_key, sizeof(request.sec_websocket_key));
 			return &request;
 		case HTTP_REQUEST:
-			xSemaphoreTake(request.wait_data_semaphore, 0);
-			fcntl(request.client_socket, F_SETFL, O_NONBLOCK);
 			on_http_request((http_request_t *)data);
 			break;
 		case HTTP_CLOSE:

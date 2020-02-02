@@ -1,5 +1,6 @@
 set(COMPONENT_SRCS
 	"audio_output.c"
+	"bits.c"
 	"control_http.c"
 	"decoder.c"
 	"interface.c"

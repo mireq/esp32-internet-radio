@@ -29,6 +29,7 @@ add_executable(
 	"${CMAKE_SOURCE_DIR}/../components/http_header_parser/http_header_parser.c"
 	"${CMAKE_SOURCE_DIR}/../components/http_server/http_server.c"
 	"${CMAKE_SOURCE_DIR}/../components/player/audio_output.c"
+	"${CMAKE_SOURCE_DIR}/../components/player/bits.c"
 	"${CMAKE_SOURCE_DIR}/../components/player/control_http.c"
 	"${CMAKE_SOURCE_DIR}/../components/player/decoder.c"
 	"${CMAKE_SOURCE_DIR}/../components/player/interface.c"

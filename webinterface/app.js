@@ -191,8 +191,8 @@ function Api(socket_url) {
 			data = new Uint8Array(data);
 		}
 		var buf = new ArrayBuffer(data.byteLength + 2);
-		var commandView = new Uint16Array(buf, 0, 1);
-		commandView[0] = commandNr;
+		var commandView = new DataView(buf, 0, 2);
+		commandView.setUint16(0, commandNr);
 		var dataView = new Uint8Array(buf, 2, data.byteLength);
 		dataView.set(new Uint8Array(data), 0);
 		self.connection.send(buf);
@@ -256,8 +256,8 @@ function Api(socket_url) {
 
 	this.setVolume = function(volume) {
 		var buf = new ArrayBuffer(2);
-		var volumeView = new Uint16Array(buf, 0, 1);
-		volumeView[0] = volume;
+		var volumeView = new DataView(buf, 0, 2);
+		volumeView.setUint16(0, volume);
 		this.sendCommand(COMMAND_SET_VOLUME, buf);
 	};
 

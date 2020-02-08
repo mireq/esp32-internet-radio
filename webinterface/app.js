@@ -219,12 +219,16 @@ function Api(socket_url) {
 	};
 
 	this.connection.signals.close.connect(function() {
-		setTimeout(function() { self.connection.connect(); }, 100);
+		setTimeout(function() { self.connection.connect(); }, 1000);
 	});
 
 	this.connection.signals.statusChanged.connect(function(status) {
 		if (status === 'connected' && pingTimer === undefined) {
 			self.sendCommand(COMMAND_PING);
+			if (pingTimer !== undefined) {
+				clearTimeout(pingTimer);
+				pingTimer = undefined;
+			}
 			pingTimer = setTimeout(checkPong, 1000);
 		}
 		if (status !== 'connected' && pingTimer !== undefined) {
@@ -468,6 +472,12 @@ document.getElementById('page_login').setAttribute('action', window.location);
 	};
 }());
 
+
+window.onbeforeunload = function() {
+	if (api !== undefined) {
+		api.connection.close();
+	}
+};
 
 
 }());

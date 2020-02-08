@@ -29,6 +29,7 @@ static const char *TAG = "control_http";
 typedef struct websocket_header_t {
 	uint64_t size;
 	uint64_t pos;
+	uint8_t opcode;
 	char mask[4];
 } websocket_header_t;
 
@@ -86,7 +87,7 @@ static http_request_t request;
 static SemaphoreHandle_t player_status_semaphore;
 
 
-static void ws_handshake(http_request_t *request) {
+static esp_err_t ws_handshake(http_request_t *request) {
 	char key[64];
 	strcpy(key, request->sec_websocket_key);
 	strcpy(key + strlen(key), ws_magic_guid);
@@ -97,9 +98,20 @@ static void ws_handshake(http_request_t *request) {
 	mbedtls_base64_encode((unsigned char *)key, sizeof(key), &olen, sha1sum, 20);
 	key[olen] = '\0';
 
-	write(request->client_socket, http_ws_start, sizeof(http_ws_start) - 1);
-	write(request->client_socket, key, strlen(key));
-	write(request->client_socket, "\r\n\r\n", sizeof("\r\n\r\n") - 1);
+	if (send(request->client_socket, http_ws_start, sizeof(http_ws_start) - 1, 0) < 0) {
+		ESP_LOGW(TAG, "Handshake failed %d", errno);
+		return ESP_FAIL;
+	}
+	if (send(request->client_socket, key, strlen(key), 0) < 0) {
+		ESP_LOGW(TAG, "Handshake failed %d", errno);
+		return ESP_FAIL;
+	}
+	if (send(request->client_socket, "\r\n\r\n", sizeof("\r\n\r\n") - 1, 0) < 0) {
+		ESP_LOGW(TAG, "Handshake failed %d", errno);
+		return ESP_FAIL;
+	}
+
+	return ESP_OK;
 }
 
 
@@ -122,15 +134,17 @@ static esp_err_t receive_websocket_header(http_request_t *request, websocket_hea
 	header->pos = 0;
 	received = recv(request->client_socket, header_data, sizeof(header_data), 0);
 	if (received == -1) {
+		ESP_LOGW(TAG, "Recv header error %d", errno);
 		return ESP_FAIL;
 	}
 	bool has_mask = false;
 	if (header_data[0] & 0x80) {
 		has_mask = true;
 	}
-	uint8_t opcode = header_data[0] & 0x0f;
-	if (opcode == 0x08) { // Final frame
-		return ESP_FAIL;
+	header->opcode = header_data[0] & 0x0f;
+	if (header->opcode == 0x08) { // Final frame
+		ESP_LOGI(TAG, "Final websocket frame");
+		return ESP_OK;
 	}
 
 	// Set header
@@ -140,6 +154,7 @@ static esp_err_t receive_websocket_header(http_request_t *request, websocket_hea
 		uint16_t size;
 		received = recv(request->client_socket, &size, sizeof(size), 0);
 		if (received == -1) {
+			ESP_LOGW(TAG, "Extended header size read failed %d", errno);
 			return ESP_FAIL;
 		}
 		header->size = ntohs(size);
@@ -148,6 +163,7 @@ static esp_err_t receive_websocket_header(http_request_t *request, websocket_hea
 		uint64_t size;
 		received = recv(request->client_socket, &size, sizeof(size), 0);
 		if (received == -1) {
+			ESP_LOGW(TAG, "Full header size read failed %d", errno);
 			return ESP_FAIL;
 		}
 		header->size = ntoh64(size);
@@ -157,6 +173,7 @@ static esp_err_t receive_websocket_header(http_request_t *request, websocket_hea
 	if (has_mask) {
 		received = recv(request->client_socket, &header->mask, sizeof(header->mask), MSG_WAITALL);
 		if (received == -1) {
+			ESP_LOGW(TAG, "Maxk reading failed %d", errno);
 			return ESP_FAIL;
 		}
 	}
@@ -278,6 +295,7 @@ static esp_err_t handle_websocket_frame(http_request_t *request, websocket_heade
 	ssize_t received;
 	received = recv_frame_data(request->client_socket, header, &command, sizeof(command));
 	if (received < 0) {
+		ESP_LOGW(TAG, "WS command read failed: %d", errno);
 		return ESP_FAIL;
 	}
 
@@ -298,6 +316,7 @@ static esp_err_t handle_websocket_frame(http_request_t *request, websocket_heade
 			status = handle_set_volume(request, header);
 			break;
 		default:
+			ESP_LOGW(TAG, "Unknown command %d", command);
 			status = ESP_FAIL;
 			break;
 	}
@@ -330,10 +349,16 @@ static esp_err_t send_player_status(http_request_t *request) {
 
 
 static void control_http_handler(http_request_t *request) {
-	ws_handshake(request);
+	if (ws_handshake(request) != ESP_OK) {
+		return;
+	}
+	xSemaphoreGive(player_status_semaphore);
 	while (1) {
 		websocket_header_t websocket_header;
 		if (receive_websocket_header(request, &websocket_header) != ESP_OK) {
+			break;
+		}
+		if (websocket_header.opcode == 0x08) {
 			break;
 		}
 		if (handle_websocket_frame(request, &websocket_header) != ESP_OK) {
@@ -344,16 +369,20 @@ static void control_http_handler(http_request_t *request) {
 
 
 static void on_http_request(http_request_t *request) {
+	ESP_LOGI(TAG, "GET %s", request->query);
 	if (strcmp(request->method, "GET") == 0) {
 		if (strcmp(request->query, "/") == 0 && strcmp(request->upgrade, "websocket") == 0) {
+			ESP_LOGI(TAG, "Opening websocket");
 			control_http_handler(request);
 			return;
 		}
 		if (strcmp(request->query, "/") == 0) {
+			ESP_LOGI(TAG, "Redirecting client");
 			home_http_handler(request);
 			return;
 		}
 	}
+	ESP_LOGI(TAG, "404 response");
 	default_http_handler(request);
 	return;
 }
@@ -405,6 +434,7 @@ static void on_http_header_parser_fragment(http_header_parser_t *parser) {
 static void *on_http_event(http_event_type_t type, void *data) {
 	switch (type) {
 		case HTTP_OPEN:
+			ESP_LOGI(TAG, "HTTP open");
 			request.server = ((http_open_t *)data)->server;
 			request.client_socket = ((http_open_t *)data)->client_socket;
 			bzero(request.query, sizeof(request.query));
@@ -414,13 +444,12 @@ static void *on_http_event(http_event_type_t type, void *data) {
 			bzero(request.sec_websocket_key, sizeof(request.sec_websocket_key));
 			return &request;
 		case HTTP_REQUEST:
-			xSemaphoreGive(player_status_semaphore);
 			on_http_request((http_request_t *)data);
 			break;
 		case HTTP_CLOSE:
-			xSemaphoreGive(request.write_data_semaphore);
 			bzero(&request.server, sizeof(request.server));
 			bzero(&request.client_socket, sizeof(request.client_socket));
+			ESP_LOGI(TAG, "HTTP close");
 			break;
 		case HTTP_HEADER:
 			on_http_header_parser_fragment((http_header_parser_t *)data);
@@ -458,9 +487,14 @@ void http_control_task(void *arg) {
 					break;
 				}
 				xSemaphoreTake(request.write_data_semaphore, portMAX_DELAY);
+				if (!request.server) {
+					xSemaphoreGive(request.write_data_semaphore);
+					break;
+				}
 				esp_err_t status = send_player_status(&request);
 				xSemaphoreGive(request.write_data_semaphore);
 				if (status != ESP_OK) {
+					ESP_LOGI(TAG, "Failed to send player status"); //tmp
 					break;
 				}
 				vTaskDelay(50 / portTICK_PERIOD_MS);

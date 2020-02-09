@@ -79,6 +79,11 @@ static void on_playback_event(void* arg, esp_event_base_t event_base, int32_t ev
 				xSemaphoreGive(has_source_semaphore);
 			}
 			break;
+		case PLAYBACK_EVENT_ERROR:
+			source_destroy(&source);
+			buffer_clear(&network_buffer);
+			playlist_open_current(&playlist);
+			break;
 		default:
 			break;
 	}
@@ -142,7 +147,7 @@ static void read_and_play_audio(void) {
 			}
 		}
 		else {
-			ESP_LOGI(TAG, "end of buffer");
+			esp_event_post_to(player_event_loop, PLAYBACK_EVENT, PLAYBACK_EVENT_ERROR, NULL, 0, portMAX_DELAY);
 			break;
 		}
 	}

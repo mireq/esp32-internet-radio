@@ -1,6 +1,7 @@
 #include <string.h>
 #include <strings.h>
 
+#include "sdkconfig.h"
 #include "playlist.h"
 
 
@@ -52,8 +53,8 @@ void playlist_open_current(playlist_t *playlist) {
 		set_playlist_item(
 			&playlist->current,
 			"", "", "", "",
-			"Test radio",
-			"http://mireq.linuxos.sk/test.mp3",
+			CONFIG_PLAYLIST_DEFAULT_STATION_NAME,
+			CONFIG_PLAYLIST_DEFAULT_STATION_URL,
 			true
 		);
 	}

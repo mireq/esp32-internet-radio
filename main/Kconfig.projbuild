@@ -56,6 +56,22 @@ config IPV4_SECONDARY_DNS
 
 endmenu
 
+menu "Playlist"
+
+config PLAYLIST_DEFAULT_STATION_NAME
+	string "Default station name"
+	default "Test radio"
+	help
+		Descriptive name of default station
+
+config PLAYLIST_DEFAULT_STATION_URL
+	string "Stream url of default station"
+	default ""
+	help
+		URL of stream e.g. http://ice1.somafm.com/illstreet-128-mp3
+
+endmenu
+
 menu "Control interface"
 
 config HTTP_CONTROL

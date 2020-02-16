@@ -9,6 +9,7 @@
 
 #include "audio_output.h"
 #include "buffer/buffer.h"
+#include "control_http.h"
 #include "decoder.h"
 #include "interface.h"
 #include "player.h"
@@ -63,6 +64,10 @@ static void on_network_event(void* arg, esp_event_base_t event_base, int32_t eve
 			playlist_cancel(&playlist);
 			break;
 		case NETWORK_EVENT_CONNECT:
+
+#if CONFIG_HTTP_CONTROL
+			http_control_init();
+#endif
 			playlist_open_current(&playlist);
 			break;
 	}

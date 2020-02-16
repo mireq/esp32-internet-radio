@@ -26,7 +26,7 @@ typedef enum WS_STATUS_t {
 } WS_STATUS_t;
 
 
-void http_control_task(void *arg);
+void http_control_init(void);
 
 
 #endif

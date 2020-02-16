@@ -15,7 +15,6 @@
 #include "nvs_flash.h"
 #endif
 
-#include "control_http.h"
 #include "init.h"
 #include "interface.h"
 #include "player.h"
@@ -197,15 +196,6 @@ static const task_init_instruction_t task_init_instructions[] = {
 		.stack_depth = configMINIMAL_STACK_SIZE + 1024,
 		.priority = tskIDLE_PRIORITY + 1,
 	},
-#if CONFIG_HTTP_CONTROL
-	{
-		// HTTP control
-		.task = http_control_task,
-		.task_name = "http_control",
-		.stack_depth = configMINIMAL_STACK_SIZE + 1024,
-		.priority = tskIDLE_PRIORITY + 2,
-	},
-#endif
 	{
 		.task = NULL
 	}

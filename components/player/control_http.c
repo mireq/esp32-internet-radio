@@ -52,7 +52,6 @@ typedef struct http_request_t {
 	char sec_websocket_key[32];
 	http_server_t *server;
 	int client_socket;
-	SemaphoreHandle_t write_data_semaphore;
 } http_request_t;
 
 
@@ -132,6 +131,7 @@ static esp_err_t receive_websocket_header(http_request_t *request, websocket_hea
 	uint8_t header_data[2];
 	ssize_t received;
 	header->pos = 0;
+
 	received = recv(request->client_socket, header_data, sizeof(header_data), 0);
 	if (received == -1) {
 		ESP_LOGW(TAG, "Recv header error %d", errno);
@@ -303,7 +303,6 @@ static esp_err_t handle_websocket_frame(http_request_t *request, websocket_heade
 	command = ntohs(command);
 
 	esp_err_t status = ESP_OK;
-	xSemaphoreTake(request->write_data_semaphore, 1000 / portTICK_PERIOD_MS);
 	// Handle command
 	switch (command) {
 		case WS_COMMAND_PING:
@@ -320,7 +319,6 @@ static esp_err_t handle_websocket_frame(http_request_t *request, websocket_heade
 			status = ESP_FAIL;
 			break;
 	}
-	xSemaphoreGive(request->write_data_semaphore);
 	return status;
 }
 
@@ -348,12 +346,44 @@ static esp_err_t send_player_status(http_request_t *request) {
 }
 
 
+static esp_err_t send_status_until_read_request(http_request_t *request) {
+	fd_set rfds;
+
+	struct timeval timeout = {
+		.tv_sec = 0,
+		.tv_usec = 50000,
+	};
+	int err = 0;
+	while (err == 0) {
+		FD_ZERO(&rfds);
+		FD_SET(request->client_socket, &rfds);
+		err = select(request->client_socket + 1, &rfds, NULL, NULL, &timeout);
+		if (err == 0) {
+			if (send_player_status(request) != ESP_OK) {
+				return ESP_FAIL;
+			}
+		}
+	}
+
+	if (err > 0) {
+		return ESP_OK;
+	}
+	else {
+		return ESP_FAIL;
+	}
+}
+
+
 static void control_http_handler(http_request_t *request) {
 	if (ws_handshake(request) != ESP_OK) {
 		return;
 	}
 	xSemaphoreGive(player_status_semaphore);
 	while (1) {
+		if (send_status_until_read_request(request) != ESP_OK) {
+			break;
+		}
+
 		websocket_header_t websocket_header;
 		if (receive_websocket_header(request, &websocket_header) != ESP_OK) {
 			break;
@@ -465,43 +495,12 @@ static http_server_t server = {
 };
 
 
-static void http_control_init(void) {
-	request.write_data_semaphore = xSemaphoreCreateBinary();
-	if (request.write_data_semaphore == NULL) {
-		ESP_LOGE(TAG, "write_data_semaphore not created");
-	}
+void http_control_init(void) {
 	player_status_semaphore = xSemaphoreCreateBinary();
 	if (player_status_semaphore == NULL) {
 		ESP_LOGE(TAG, "player_status_semaphore not created");
 	}
 	http_server_init(&server, on_http_event, NULL);
-}
-
-
-void http_control_task(void *arg) {
-	vTaskDelay(50 / portTICK_PERIOD_MS);
-	http_control_init();
-	while (1) {
-		if (xSemaphoreTake(player_status_semaphore, portMAX_DELAY)) {
-			while (1) {
-				if (!request.server) {
-					break;
-				}
-				xSemaphoreTake(request.write_data_semaphore, portMAX_DELAY);
-				if (!request.server) {
-					xSemaphoreGive(request.write_data_semaphore);
-					break;
-				}
-				esp_err_t status = send_player_status(&request);
-				xSemaphoreGive(request.write_data_semaphore);
-				if (status != ESP_OK) {
-					ESP_LOGI(TAG, "Failed to send player status"); //tmp
-					break;
-				}
-				vTaskDelay(50 / portTICK_PERIOD_MS);
-			}
-		}
-	}
 }
 
 

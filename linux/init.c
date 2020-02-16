@@ -28,5 +28,5 @@ static void fake_network_init(void *data) {
 
 
 void init_network(void) {
-	xTaskCreate(&fake_network_init, "fake_network_init", configMINIMAL_STACK_SIZE, NULL, 1, NULL);
+	xTaskCreate(&fake_network_init, "fake_net", configMINIMAL_STACK_SIZE, NULL, 1, NULL);
 }

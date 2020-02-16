@@ -460,7 +460,7 @@ static void *on_http_event(http_event_type_t type, void *data) {
 
 
 static http_server_t server = {
-	.task_name = "http_control",
+	.task_name = "http_server",
 	.port = CONFIG_HTTP_CONTROL_PORT,
 };
 
@@ -479,6 +479,7 @@ static void http_control_init(void) {
 
 
 void http_control_task(void *arg) {
+	vTaskDelay(50 / portTICK_PERIOD_MS);
 	http_control_init();
 	while (1) {
 		if (xSemaphoreTake(player_status_semaphore, portMAX_DELAY)) {

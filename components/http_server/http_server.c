@@ -29,6 +29,7 @@ void http_server(void *args) {
 	struct sockaddr_in servaddr, clientaddr;
 
 	socketfd = socket(AF_INET, SOCK_STREAM, 0);
+
 	if (socketfd == -1) {
 		ESP_LOGE(TAG, "Socket not allocated");
 		vTaskDelete(NULL);
@@ -114,7 +115,7 @@ void http_server(void *args) {
 void http_server_init(http_server_t *server, http_server_callback callback, void *handle) {
 	server->handle = handle;
 	server->callback = callback;
-	if (xTaskCreatePinnedToCore(&http_server, server->task_name, configMINIMAL_STACK_SIZE + 2048, server, tskIDLE_PRIORITY + 1, NULL, 0) != pdPASS) {
+	if (xTaskCreatePinnedToCore(&http_server, server->task_name, configMINIMAL_STACK_SIZE + 2048, server, tskIDLE_PRIORITY + 2, NULL, 0) != pdPASS) {
 		ESP_LOGE(TAG, "HTTP server task not initialized");
 	}
 }

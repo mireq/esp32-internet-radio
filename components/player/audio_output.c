@@ -6,6 +6,8 @@ static const char *TAG = "audio_output";
 
 #ifndef SIMULATOR
 static i2s_dev_t* I2S[I2S_NUM_MAX] = {&I2S0, &I2S1};
+#else
+#define PERIOD_SIZE 576
 #endif
 
 
@@ -31,7 +33,7 @@ esp_err_t audio_output_init(audio_output_t *output) {
 	snd_pcm_hw_params_set_rate_near(output->handle, hw_params, &rrate, NULL);
 	snd_pcm_hw_params_set_channels(output->handle, hw_params, 2);
 	snd_pcm_uframes_t buffer_size = 48;
-	snd_pcm_uframes_t period_size = 576;
+	snd_pcm_uframes_t period_size = PERIOD_SIZE;
 
 	snd_pcm_hw_params_set_buffer_size_near(output->handle, hw_params, &buffer_size);
 	snd_pcm_hw_params_set_period_size_near(output->handle, hw_params, &period_size, NULL);
@@ -45,7 +47,7 @@ esp_err_t audio_output_init(audio_output_t *output) {
 	}
 	snd_pcm_hw_params_free(hw_params);
 
-	if ((err = snd_pcm_set_params(output->handle, SND_PCM_FORMAT_S32, SND_PCM_ACCESS_RW_INTERLEAVED, 2, output->sample_rate, 1, 500000)) < 0) {
+	if ((err = snd_pcm_set_params(output->handle, SND_PCM_FORMAT_S32, SND_PCM_ACCESS_RW_INTERLEAVED, 2, output->sample_rate, 1, 100000)) < 0) {
 		ESP_LOGE(TAG, "Playback set params error: %s", snd_strerror(err));
 		snd_pcm_close(output->handle);
 		output->handle = NULL;
@@ -88,7 +90,7 @@ esp_err_t audio_output_set_sample_rate(audio_output_t *output, int rate) {
 
 #ifdef SIMULATOR
 	int err;
-	if ((err = snd_pcm_set_params(output->handle, SND_PCM_FORMAT_S32, SND_PCM_ACCESS_RW_INTERLEAVED, 2, output->sample_rate, 1, 500000)) < 0) {
+	if ((err = snd_pcm_set_params(output->handle, SND_PCM_FORMAT_S32, SND_PCM_ACCESS_RW_INTERLEAVED, 2, output->sample_rate, 1, 100000)) < 0) {
 		ESP_LOGE(TAG, "Playback set params error: %s", snd_strerror(err));
 		return ESP_FAIL;
 	}
@@ -166,7 +168,12 @@ esp_err_t audio_output_write(audio_output_t *output, audio_sample_t *buf, size_t
 	while (written_frames < samples_count) {
 		frames = snd_pcm_writei(output->handle, buf + (written_frames * 2), samples_count - written_frames);
 		if (frames == -EAGAIN) {
-			vTaskDelay(1);
+			int delay = 0;
+			snd_pcm_sframes_t avail_frames = snd_pcm_avail(output->handle);
+			if (avail_frames >= 0 && avail_frames < (samples_count + PERIOD_SIZE)) {
+				delay = ((samples_count - avail_frames + PERIOD_SIZE) * 1000) / output->sample_rate;
+			}
+			vTaskDelay(delay + 1);
 			continue;
 		}
 		else if (frames >= 0) {

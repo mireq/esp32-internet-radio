@@ -11,6 +11,10 @@ static i2s_dev_t* I2S[I2S_NUM_MAX] = {&I2S0, &I2S1};
 #endif
 
 
+#define _GPIO_NUM(n) GPIO_NUM_##n
+#define GPIO_NUM(n) _GPIO_NUM(n)
+
+
 esp_err_t audio_output_init(audio_output_t *output) {
 #ifdef SIMULATOR
 	int err;
@@ -69,9 +73,9 @@ esp_err_t audio_output_init(audio_output_t *output) {
 		.tx_desc_auto_clear = true,
 	};
 	static const i2s_pin_config_t pin_config = {
-		.bck_io_num = GPIO_NUM_26,
-		.ws_io_num = GPIO_NUM_25,
-		.data_out_num = GPIO_NUM_22,
+		.bck_io_num = GPIO_NUM(CONFIG_I2S_BCLK_GPIO),
+		.ws_io_num = GPIO_NUM(CONFIG_I2S_LRCLK_GPIO),
+		.data_out_num = GPIO_NUM(CONFIG_I2S_SD_GPIO),
 		.data_in_num = I2S_PIN_NO_CHANGE
 	};
 	ESP_ERROR_CHECK(i2s_driver_install(output->port, &i2s_config, 0, NULL));

@@ -72,6 +72,25 @@ config PLAYLIST_DEFAULT_STATION_URL
 
 endmenu
 
+menu "I2S"
+
+config I2S_LRCLK_GPIO
+	int "LRCLK GPIO port number"
+	range 0 34
+	default 4
+
+config I2S_BCLK_GPIO
+	int "BCLK GPIO port number"
+	range 0 34
+	default 0
+
+config I2S_SD_GPIO
+	int "SD/DATA GPIO port number"
+	range 0 34
+	default 2
+
+endmenu
+
 menu "Control interface"
 
 config HTTP_CONTROL

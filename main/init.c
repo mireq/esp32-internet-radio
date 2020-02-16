@@ -203,7 +203,7 @@ static const task_init_instruction_t task_init_instructions[] = {
 		.task = http_control_task,
 		.task_name = "http_control",
 		.stack_depth = configMINIMAL_STACK_SIZE + 1024,
-		.priority = tskIDLE_PRIORITY + 1,
+		.priority = tskIDLE_PRIORITY + 2,
 	},
 #endif
 	{

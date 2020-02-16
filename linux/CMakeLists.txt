@@ -23,6 +23,7 @@ include_directories(
 
 add_executable(
 	${PROJECT_NAME}
+	trace.c
 	init.c
 
 	"${CMAKE_SOURCE_DIR}/../components/buffer/buffer.c"
@@ -43,11 +44,14 @@ add_executable(
 )
 
 add_definitions(-D_GNU_SOURCE -DSIMULATOR -g3 -ggdb)
+target_compile_definitions(freertos PUBLIC -DFREERTOS_EXTRA_CONFIG)
+target_include_directories(freertos PUBLIC "${CMAKE_SOURCE_DIR}/include/")
 
 target_link_libraries(
 	${PROJECT_NAME}
 	asound
 	mad
+	rt
 	simulator
 )
 set_property(TARGET ${PROJECT_NAME} PROPERTY C_STANDARD 11)

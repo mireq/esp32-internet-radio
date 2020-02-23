@@ -54,6 +54,8 @@ typedef struct source_data_http_t {
 	int icy_meta_interval_distance;
 	int icy_meta_size;
 	int icy_meta_readed;
+	ssize_t content_length;
+	ssize_t content_readed;
 	char icy_meta_buffer[MAX_ICY_SIZE];
 	int sock;
 } source_data_http_t;

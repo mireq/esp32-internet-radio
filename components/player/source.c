@@ -132,6 +132,7 @@ ssize_t source_read(source_t *source, char *buf, ssize_t size) {
 typedef struct http_header_t {
 	int status;
 	int icy_metaint;
+	ssize_t content_length;
 	char content_type[HTTP_HEADER_VALUE_BUFFER_SIZE];
 } http_header_t;
 
@@ -170,6 +171,9 @@ static void on_http_header_parser_fragment(http_header_parser_t *parser) {
 		if (strcmp(parser->key, "icy-metaint") == 0) {
 			header->icy_metaint = atoi(parser->value);
 		}
+		if (strcmp(parser->key, "content-length") == 0) {
+			header->content_length = (ssize_t)(atoll(parser->value));
+		}
 	}
 }
 
@@ -183,6 +187,8 @@ static source_error_t source_http_init(source_t *source, const uri_t *uri) {
 	http->icy_meta_interval_distance = 0;
 	http->icy_meta_size = 0;
 	http->icy_meta_readed = 0;
+	http->content_length = -1;
+	http->content_readed = 0;
 	http->sock = -1;
 
 	const struct addrinfo hints = {
@@ -243,6 +249,7 @@ static source_error_t source_http_init(source_t *source, const uri_t *uri) {
 	http_header_t http_header = {
 		.status = 0,
 		.icy_metaint = 0,
+		.content_length = -1,
 		.content_type = "",
 	};
 	http_header_parser_t parser;
@@ -270,6 +277,7 @@ static source_error_t source_http_init(source_t *source, const uri_t *uri) {
 	http->sock = sock;
 	http->icy_meta_interval = http_header.icy_metaint;
 	http->icy_meta_interval_distance = http_header.icy_metaint;
+	http->content_length = http_header.content_length;
 	strcpy(source->content_type, http_header.content_type);
 
 	ESP_LOGI(TAG, "opened http stream");

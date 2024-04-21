@@ -11,6 +11,7 @@
 #include "esp_wifi.h"
 #include "lwip/err.h"
 #include "lwip/sys.h"
+#include "lwip/ip4_addr.h"
 #ifndef SIMULATOR
 #include "nvs_flash.h"
 #endif
@@ -194,7 +195,7 @@ static const task_init_instruction_t task_init_instructions[] = {
 		.task = player_stats_task,
 		.task_name = "player_stats",
 		.stack_depth = configMINIMAL_STACK_SIZE + 1024,
-		.priority = tskIDLE_PRIORITY + 1,
+		.priority = tskIDLE_PRIORITY + 2,
 	},
 	{
 		.task = NULL

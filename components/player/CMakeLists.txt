@@ -8,6 +8,5 @@ set(COMPONENT_SRCS
 	"playlist.c"
 	"source.c"
 )
-set(COMPONENT_ADD_INCLUDEDIRS "include")
-set(COMPONENT_REQUIRES "http_header_parser" "http_server" "buffer" "mad" "mbedtls")
-register_component()
+
+idf_component_register(SRCS ${COMPONENT_SRCS} INCLUDE_DIRS "include" REQUIRES "http_header_parser" "http_server" "buffer" "mad" "mbedtls" "esp_event" "driver")

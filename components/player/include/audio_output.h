@@ -14,6 +14,7 @@
 #else
 
 #include "driver/i2s.h"
+#include "hal/i2s_ll.h"
 #define AUDIO_BITS_PER_SAMPLE I2S_BITS_PER_SAMPLE_32BIT
 #define AUDIO_I2S_PORT I2S_NUM_0
 #define I2S_BASE_CLK (2*APB_CLK_FREQ)

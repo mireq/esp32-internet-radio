@@ -5,7 +5,7 @@
 static const char *TAG = "audio_output";
 
 #ifndef SIMULATOR
-static i2s_dev_t* I2S[I2S_NUM_MAX] = {&I2S0, &I2S1};
+static i2s_dev_t* I2S[2] = {&I2S0, &I2S1};
 #else
 #define PERIOD_SIZE 576
 #endif
@@ -65,7 +65,7 @@ esp_err_t audio_output_init(audio_output_t *output) {
 		.sample_rate = 44100,
 		.bits_per_sample = AUDIO_BITS_PER_SAMPLE,
 		.channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT,
-		.communication_format = I2S_COMM_FORMAT_I2S | I2S_COMM_FORMAT_I2S_MSB,
+		.communication_format = I2S_COMM_FORMAT_STAND_I2S | I2S_COMM_FORMAT_STAND_I2S,
 		.intr_alloc_flags = 0,
 		.dma_buf_count = AUDIO_OUTPUT_BUFFER_COUNT,
 		.dma_buf_len = AUDIO_OUTPUT_BUFFER_SIZE,

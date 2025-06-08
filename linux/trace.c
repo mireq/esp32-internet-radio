@@ -101,6 +101,7 @@ static void write_trace(int64_t time_diff, void *data, size_t data_size, FILE *f
 		}
 	}
 	fwrite(data, data_size, 1, fp);
+	fflush(fp);
 }
 
 

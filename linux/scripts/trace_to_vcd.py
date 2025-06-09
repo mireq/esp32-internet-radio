@@ -39,18 +39,18 @@ def parse_trace(fp):
 	while True:
 		time_diff = fp.read(1)
 		if len(time_diff) < 1:
-			raise StopIteration()
+			return
 		time_diff = struct.unpack('B', time_diff)[0]
 		header = time_diff >> 6
 		time_diff = time_diff & 0x3f
 		for _ in range(EXTRA_BYTES[header]):
 			byte = fp.read(1)
 			if len(byte) < 1:
-				raise StopIteration()
+				return
 			time_diff = (time_diff << 8) + struct.unpack('B', byte)[0]
 		value = fp.read(1)
 		if len(value) < 1:
-			raise StopIteration()
+			return
 		value = struct.unpack('B', value)[0]
 		yield (time_diff, value)
 

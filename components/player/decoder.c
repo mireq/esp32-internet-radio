@@ -26,11 +26,14 @@ static esp_err_t decoder_mpeg_init(decoder_t *decoder, source_t *source) {
 
 
 static int32_t decoder_mpeg_scale(mad_fixed_t sample) {
-	int32_t output = sample << (sizeof(int32_t) * 8 - MAD_F_FRACBITS - 1);
-	if (sample < 0) {
-		output |= 1L << (sizeof(int32_t)-1);
-	}
-	return output;
+	sample += (1L << (MAD_F_FRACBITS - 16));
+
+	if (sample >= MAD_F_ONE)
+		sample = MAD_F_ONE - 1;
+	else if (sample < -MAD_F_ONE)
+		sample = -MAD_F_ONE;
+
+	return (sample >> (MAD_F_FRACBITS + 1 - 16)) * 65536;
 }
 
 

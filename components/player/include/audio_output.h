@@ -4,7 +4,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 
-#define AUDIO_OUTPUT_BUFFER_COUNT 4
+#define AUDIO_OUTPUT_BUFFER_COUNT 16
 #define AUDIO_OUTPUT_BUFFER_SIZE 384
 
 #ifdef SIMULATOR
